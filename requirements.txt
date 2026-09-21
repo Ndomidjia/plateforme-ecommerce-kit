@@ -1,0 +1,16 @@
+--extra-index-url https://download.pytorch.org/whl/cpu
+pandas>=2.0
+sqlalchemy>=2.0
+psycopg2-binary
+python-dotenv
+jupyter
+scikit-learn
+torch             # deep learning (analyse de sentiment)
+mlxtend           # règles d'association (market basket)
+fastapi
+uvicorn[standard]
+python-multipart  # requis par OAuth2PasswordRequestForm (formulaire de login)
+bcrypt            # hashing des mots de passe (API)
+pyjwt             # jetons JWT (API)
+pytest            # tests (voir tests/ et docs/tests.md)
+httpx             # requis par fastapi.testclient.TestClient

@@ -1,0 +1,79 @@
+name: CI
+
+# Répond au retour de soutenance "absence de CI/CD confirmée, processus de
+# déploiement flou" : ce pipeline tourne les tests automatisés (tests/) à
+# chaque push/PR, sur une base PostgreSQL fraîche (schéma seul -- les CSV
+# Kaggle sources ne sont pas commités, voir tests/test_data_quality.py et
+# docs/deploiement.md pour ce que ça implique concrètement).
+#
+# Ce que ce pipeline NE fait PAS (limite assumée, voir docs/deploiement.md) :
+# pas de déploiement automatique (CD) -- il n'y a pas d'environnement
+# hébergé vers lequel déployer pour ce projet. "CI" au sens strict, pas
+# "CI/CD" complet.
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+    branches: ["**"]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: ecommerce_admin
+          POSTGRES_PASSWORD: ci_password
+          POSTGRES_DB: ecommerce_platform
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U ecommerce_admin"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      DATABASE_URL: postgresql+psycopg2://ecommerce_admin:ci_password@localhost:5432/ecommerce_platform
+      JWT_SECRET_KEY: ci-only-secret-not-used-in-production
+      JWT_ALGORITHM: HS256
+      ACCESS_TOKEN_EXPIRE_MINUTES: "60"
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Installer les dépendances
+        run: pip install -r requirements.txt
+
+      - name: Appliquer le schéma SQL (sans les données -- voir docs/tests.md)
+        run: |
+          for f in sql/01_schemas.sql sql/02_olist_tables.sql sql/03_retailrocket_tables.sql \
+                   sql/04_churn_tables.sql sql/05_analytics_tables.sql sql/06_app_tables.sql \
+                   sql/07_sentiment_table.sql sql/08_churn_feature_importance.sql \
+                   sql/09_customer_360.sql sql/10_model_metrics_history.sql sql/11_model_registry.sql; do
+            echo "-- $f --"
+            PGPASSWORD=ci_password psql -h localhost -U ecommerce_admin -d ecommerce_platform -f "$f"
+          done
+
+      - name: pytest
+        working-directory: .
+        run: pytest -v
+
+      - name: Créer un compte admin de test et vérifier que l'API démarre
+        working-directory: api
+        run: |
+          python create_admin.py ci_smoke_admin "CiSmoke!2026"
+          nohup python -m uvicorn main:app --port 8000 &
+          for i in $(seq 1 20); do
+            curl -sf http://127.0.0.1:8000/health && break
+            sleep 1
+          done
+          curl -sf http://127.0.0.1:8000/health
