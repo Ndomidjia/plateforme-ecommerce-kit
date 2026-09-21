@@ -175,7 +175,54 @@ identifiées et corrigées plutôt que listées sans suite :
   vraie analyse de survie (Kaplan-Meier) pour le calcul du seuil de non-réachat, qui traiterait la
   censure plus rigoureusement que le percentile simple actuellement utilisé.
 
+## Retours de soutenance traités (21/09/2026)
+
+Cinq remarques reçues, traitées une par une plutôt que reportées :
+
+- **"Aucun test automatisé, comment la fiabilité a-t-elle été vérifiée jusqu'à présent ?"** —
+  Réponse honnête d'abord (manuellement, voir [tests.md](tests.md)), puis correction : dossier
+  `tests/` (pytest), 24 tests (RBAC, qualité de données, garde-fou de versioning de modèle). Mettre
+  en place la CI qui en découle (voir plus bas) a immédiatement révélé un bug réel et jusque-là
+  invisible : `/analytics/overview` plantait (500) sur une base sans données (`GROUP BY`/`LIMIT 1`
+  renvoyant zéro ligne, pas une ligne de `NULL`) — jamais remarqué en développement car la base de
+  travail a toujours eu des données. Corrigé dans `api/routers/analytics.py`.
+- **"Droit à l'oubli par anonymisation : à rattacher explicitement au texte RGPD."** —
+  [rgpd.md](rgpd.md) réécrit : base légale explicite (article 17(3)(d) + garanties de l'article
+  89(1)), et une affirmation trop forte de la version précédente ("la ligne cesse d'être une donnée
+  personnelle") corrigée en distinguant anonymisation démontrée vs pseudonymisation — le traitement
+  actuel est plus honnêtement le second, en l'absence d'analyse de k-anonymat sur les attributs
+  comportementaux restants.
+- **"Rien sur le versioning des modèles : un modèle moins bon écrase-t-il l'ancien sans rollback ?"**
+  — C'était le cas. `analytics/model_registry.py` ajouté : promotion conditionnée à une métrique non
+  significativement inférieure à la version active (tolérance 0,01 AUC), sauvegarde automatique
+  avant chaque promotion, rollback d'un niveau depuis la page Administration. Intégré à
+  `churn_model.py` et `customer_360_olist.py`. **Incident** — première exécution en échec :
+  `TypeError: unsupported operand type(s) for -: 'decimal.Decimal' and 'float'` (colonnes
+  PostgreSQL `NUMERIC` remontées en `decimal.Decimal` par psycopg2, pas en `float`) ; corrigé par
+  conversion explicite dans `model_registry.get_active`. Testé de bout en bout (deux recalculs
+  successifs + rollback + tentative de second rollback correctement refusée en 409) avant d'être
+  considéré fonctionnel.
+- **"Absence de CI/CD confirmée, déploiement flou."** — `.github/workflows/ci.yml` ajouté (tests à
+  chaque push, sur une base PostgreSQL fraîche — schéma seul, les CSV Kaggle ne sont pas commités) ;
+  validé localement en simulant l'environnement CI (conteneur PostgreSQL vierge, schéma seul) avant
+  tout push. [deploiement.md](deploiement.md) ajouté, honnête sur ce qui manque encore (CD réel :
+  pas de cible d'hébergement pour ce projet, documenté comme choix de périmètre assumé, pas comme
+  angle mort).
+- **"Le seuil de 200 produits n'est justifié par aucune analyse de la distribution réelle."** —
+  Exact, la v1 se contentait d'une phrase. `analytics/analyse_seuil_bot.py` ajouté : distribution
+  complète tracée (échelle log + fonction de survie log-log), et le pipeline de recommandation
+  recalculé en entier pour 5 seuils candidats (100/150/200/300/500). Résultat honnête dans les deux
+  sens : pas de cassure nette dans les données (queue continue, pas un mélange de deux populations
+  séparables), mais le résultat final (couverture catalogue, volume de recommandations) est stable
+  sur toute la plage testée (+0,7 point de couverture entre 100 et 500). 200 est donc un choix
+  robuste dans une plage stable, pas une valeur "optimale" dérivée d'une cassure qui n'existe pas —
+  la v1 le laissait croire à tort, corrigé dans
+  [limitations-methodologiques.md](limitations-methodologiques.md).
+
 ## Reste à faire (non commencé)
 
-Tests automatisés (pytest), CI/CD. Le monitoring du drift dispose maintenant d'une fondation
-(`analytics.model_metrics_history`) mais aucun tableau de bord ni alerte ne l'exploite encore.
+CD (déploiement continu) — pas de cible d'hébergement pour ce projet, voir
+[deploiement.md](deploiement.md). Couverture de tests étendue aux scripts `analytics/*.py`
+eux-mêmes (seul leur résultat en base est testé actuellement) et au dashboard React (aucun test).
+Le monitoring de drift dispose d'une fondation (`analytics.model_metrics_history`,
+`analytics.model_registry`) mais aucun tableau de bord ni alerte automatique ne l'exploite encore.

@@ -21,17 +21,20 @@ identifiées sur chaque module (importantes à connaître avant la soutenance).
 ## Structure du repo
 
 ```
+├── .github/workflows/   # CI (tests automatiques à chaque push, voir docs/deploiement.md)
 ├── docker-compose.yml   # PostgreSQL 16 conteneurisé
 ├── .env.example         # variables d'environnement (jamais commiter .env)
-├── sql/                 # DDL : schémas, tables, contrôles (01 à 10 + 99_controles)
+├── sql/                 # DDL : schémas, tables, contrôles (01 à 11 + 99_controles)
 ├── etl/                 # Extract-Transform-Load des 3 sources brutes -> schémas olist/retailrocket/churn
 ├── analytics/           # Modules ML : RFM, market basket, funnel, reco collaborative,
 │                         # scoring churn, sentiment (deep learning), vue client 360° -> écrivent dans analytics.*
+│                         # + model_registry.py (versioning/rollback) et analyse_seuil_bot.py (diagnostic)
 ├── api/                 # API FastAPI : auth JWT/RBAC, endpoints analytics, RGPD, administration
 ├── dashboard/            # Dashboard React (Vite) : consomme l'API, vues par rôle admin/analyst
 ├── data/raw/             # CSV bruts (ignorés par git)
 ├── notebooks/            # EDA et prototypage
-└── docs/                 # Architecture, limitations, RGPD, journal de bord
+├── tests/                # pytest : RBAC, qualité de données, versioning de modèle (voir docs/tests.md)
+└── docs/                 # Architecture, limitations, RGPD, tests, déploiement, journal de bord
 ```
 
 ## Démarrage
@@ -43,14 +46,16 @@ copy .env.example .env        # puis éditer le mot de passe
 docker compose up -d          # démarre PostgreSQL 16 et crée schémas/tables (sql/01 à 05)
 ```
 
-Si la base existait déjà avant l'ajout d'un nouveau fichier SQL (06 à 09 — schéma `app`, table
-sentiment, importance des variables, vue client 360°), l'appliquer manuellement :
+Si la base existait déjà avant l'ajout d'un nouveau fichier SQL (06 à 11 — schéma `app`, table
+sentiment, importance des variables, vue client 360°, historique des métriques, registre de
+versions de modèles), l'appliquer manuellement :
 ```bash
 docker exec -i ecommerce_db psql -U ecommerce_admin -d ecommerce_platform < sql/06_app_tables.sql
 docker exec -i ecommerce_db psql -U ecommerce_admin -d ecommerce_platform < sql/07_sentiment_table.sql
 docker exec -i ecommerce_db psql -U ecommerce_admin -d ecommerce_platform < sql/08_churn_feature_importance.sql
 docker exec -i ecommerce_db psql -U ecommerce_admin -d ecommerce_platform < sql/09_customer_360.sql
 docker exec -i ecommerce_db psql -U ecommerce_admin -d ecommerce_platform < sql/10_model_metrics_history.sql
+docker exec -i ecommerce_db psql -U ecommerce_admin -d ecommerce_platform < sql/11_model_registry.sql
 ```
 
 ### 2. Environnement Python
@@ -85,9 +90,16 @@ python customer_360_olist.py     # vue client 360° : RFM + proxy de risque + se
 `market_basket_olist.py` (il les réutilise). Voir
 [docs/architecture.md](docs/architecture.md#ce-qui-a-été-fait-à-la-place--fusion-au-niveau-des-résultats-sur-olist-analyticscustomer_360)
 pour le contexte de ce module et [docs/limitations-methodologiques.md](docs/limitations-methodologiques.md)
-pour son évaluation honnête (résultat négatif assumé : AUC = 0,57).
-Chaque script vide et recalcule sa table `analytics.*` — relançable à tout moment. Peuvent aussi
-être relancés depuis le dashboard (page Administration, admin uniquement).
+pour son évaluation honnête (résultat négatif assumé : AUC = 0,58).
+Chaque script recalcule sa table `analytics.*` — relançable à tout moment. `churn_model.py` et
+`customer_360_olist.py` passent par [`analytics/model_registry.py`](docs/architecture.md#versioning-et-rollback-des-modèles-analyticsmodel_registrypy) :
+un nouveau modèle n'écrase la version active que s'il n'est pas significativement moins bon, avec
+un rollback d'un niveau possible depuis le dashboard. Peuvent tous être relancés depuis le
+dashboard (page Administration, admin uniquement).
+
+Diagnostic optionnel (ne modifie aucune table) : `python analyse_seuil_bot.py` documente le choix
+du seuil de filtrage bot de `recommend_retailrocket.py` — voir
+[docs/limitations-methodologiques.md](docs/limitations-methodologiques.md#reco-collaborative-item-item-retailrocket).
 
 ### 5. API
 
@@ -107,6 +119,15 @@ npm run dev
 ```
 http://localhost:5173 — se connecter avec le compte admin créé à l'étape 5.
 
+### 7. Tests
+
+```bash
+pytest   # depuis la racine, base de données démarrée (étape 1) -- voir docs/tests.md
+```
+24 tests (RBAC, qualité de données, versioning de modèle). Lancés automatiquement à chaque push
+(`.github/workflows/ci.yml`) — voir [docs/tests.md](docs/tests.md) et
+[docs/deploiement.md](docs/deploiement.md).
+
 ## Rôles
 
 - **`admin`** : accès complet — analytics, RGPD (export/anonymisation), gestion des comptes API,
@@ -119,6 +140,10 @@ http://localhost:5173 — se connecter avec le compte admin créé à l'étape 5
 - [docs/architecture.md](docs/architecture.md) — décisions d'architecture et pourquoi
 - [docs/limitations-methodologiques.md](docs/limitations-methodologiques.md) — limites connues de
   chaque module (à citer en soutenance plutôt qu'à laisser découvrir)
-- [docs/rgpd.md](docs/rgpd.md) — approche RGPD (droit d'accès, droit à l'oubli, audit)
+- [docs/rgpd.md](docs/rgpd.md) — approche RGPD (droit d'accès, droit à l'oubli et sa base légale,
+  audit)
+- [docs/tests.md](docs/tests.md) — ce qui est testé automatiquement (et ce qui ne l'est pas encore)
+- [docs/deploiement.md](docs/deploiement.md) — CI en place, ce qu'un vrai déploiement continu
+  demanderait
 - [docs/journal-de-bord.md](docs/journal-de-bord.md) — chronologie des décisions, incidents
   rencontrés et corrigés pendant le développement

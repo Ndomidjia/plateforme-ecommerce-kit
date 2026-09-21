@@ -119,3 +119,30 @@ suivi par un dictionnaire en mémoire dans le processus API. Cette approche est 
 simple pour un projet à instance unique (un seul worker uvicorn) : elle ne survivrait pas à un
 redémarrage de l'API ni à plusieurs workers. Une vraie file de tâches (Celery, RQ, ou équivalent)
 serait nécessaire en production — bonne piste d'amélioration à mentionner en soutenance.
+
+## Versioning et rollback des modèles (`analytics/model_registry.py`)
+
+Un recalcul à la demande relance un script d'entraînement complet (`churn_model.py`,
+`customer_360_olist.py`) — donc un nouveau modèle, potentiellement moins bon que celui en
+production (mauvais tirage aléatoire, dérive des données, régression introduite par un changement
+de code). Sans garde-fou, le comportement par défaut de ces scripts (TRUNCATE + réécriture des
+tables `analytics.*`) écraserait silencieusement le modèle actif, sans comparaison ni retour
+arrière possible — c'est le cas jusqu'à l'ajout de ce module.
+
+Principe (voir docstring de `analytics/model_registry.py` pour le détail) :
+
+1. **Décision de promotion** — la métrique hors échantillon (AUC) de la nouvelle exécution est
+   comparée à celle de la version active (`analytics.model_registry`). Promue si elle n'est pas
+   inférieure de plus de 0,01 (tolère le bruit naturel d'un ré-entraînement sans laisser passer une
+   vraie régression) ; sinon rejetée.
+2. **Si rejetée** : les tables live (`churn_scores`, `customer_360`...) ne sont pas touchées — la
+   version active continue de servir l'API/le dashboard. Le résultat rejeté est écrit à part
+   (`<table>_candidate`) pour inspection plutôt que jeté silencieusement.
+3. **Si promue** : l'état sortant est d'abord sauvegardé (`<table>_previous`), puis les tables live
+   sont mises à jour. Un rollback **d'un seul niveau** est possible depuis la page Administration
+   (`POST /admin/models/{model_name}/rollback`), qui restaure ce snapshot.
+
+Rollback à un niveau plutôt qu'un historique complet versionné (type MLflow) : proportionné à
+l'échelle du projet — voir [limitations-methodologiques.md](limitations-methodologiques.md).
+L'historique COMPLET des métriques de chaque exécution (promue ou non), lui, reste append-only et
+jamais purgé dans `analytics.model_metrics_history`, indépendamment de la profondeur du rollback.
