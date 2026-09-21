@@ -1,26 +1,29 @@
-"""Analyse de sensibilité du seuil MAX_ITEMS_PER_VISITOR (recommend_retailrocket.py).
+"""Mon analyse de sensibilité du seuil MAX_ITEMS_PER_VISITOR (recommend_retailrocket.py).
 
-Contexte (retour de soutenance) : le seuil de 200 produits distincts par
-visiteur, utilisé pour exclure les comportements de bot/crawler, n'était
-justifié dans le code que par une phrase ("118 visiteurs sur 1,4M") sans
-montrer la distribution réelle qui a mené à ce choix, ni vérifier que le
-résultat final (couverture du catalogue, volume de recommandations) est
-stable autour de cette valeur -- ce script comble ce manque :
+Contexte (retour de soutenance) : mon jury m'a fait remarquer que le seuil
+de 200 produits distincts par visiteur, que j'utilise pour exclure les
+comportements de bot/crawler, n'était justifié dans mon code que par une
+phrase ("118 visiteurs sur 1,4M") sans montrer la distribution réelle qui
+m'a mené à ce choix, ni vérifier que le résultat final (couverture du
+catalogue, volume de recommandations) est stable autour de cette valeur --
+j'ai écrit ce script pour combler ce manque :
 
-1. trace la distribution du nombre de produits distincts consultés par
-   visiteur, et cherche une cassure nette qui séparerait naturellement des
-   visiteurs humains d'un comportement de bot ;
-2. compare, pour plusieurs seuils candidats (100/150/200/300/500), le volume
-   de données conservées et le résultat final produit par le pipeline de
-   recommandation (recommend_retailrocket.py) -- si le résultat est stable,
-   le seuil est robuste dans cette plage ; s'il varie fortement, le choix de
-   200 est en réalité arbitraire et doit être documenté comme tel plutôt que
-   présenté comme une décision technique solide (formulation reprise
-   directement du retour de soutenance).
+1. je trace la distribution du nombre de produits distincts consultés par
+   visiteur, et je cherche une cassure nette qui séparerait naturellement
+   des visiteurs humains d'un comportement de bot ;
+2. je compare, pour plusieurs seuils candidats (100/150/200/300/500), le
+   volume de données conservées et le résultat final produit par mon
+   pipeline de recommandation (recommend_retailrocket.py) -- si le résultat
+   est stable, mon seuil est robuste dans cette plage ; s'il varie
+   fortement, mon choix de 200 est en réalité arbitraire et je dois le
+   documenter comme tel plutôt que le présenter comme une décision
+   technique solide (formulation reprise directement du retour de
+   soutenance).
 
-Écrit ses résultats dans docs/assets/ (graphique + tableau) et n'affecte
-aucune table de la base -- purement diagnostique, à lancer manuellement,
-pas dans run_all.py ni dans le recalcul à la demande de l'admin.
+J'écris mes résultats dans docs/assets/ (graphique + tableau) et je ne
+touche à aucune table de la base -- purement diagnostique, à lancer
+manuellement, pas dans run_all.py ni dans le recalcul à la demande de
+l'admin.
 """
 import logging
 from pathlib import Path
@@ -65,7 +68,7 @@ def plot_distribution(items_per_visitor: pd.Series):
     ASSETS_DIR.mkdir(parents=True, exist_ok=True)
     fig, axes = plt.subplots(1, 2, figsize=(13, 4.5))
 
-    # Histogramme échelle log (axe Y) : rend visible la "cassure" -- la
+    # Histogramme échelle log (axe Y) : je rends visible la "cassure" -- la
     # masse de visiteurs humains s'effondre rapidement, et une longue traîne
     # fine de comportements atypiques (bots probables) s'étend au-delà.
     axes[0].hist(items_per_visitor.clip(upper=1000), bins=200, color="#4C72B0")
@@ -79,8 +82,9 @@ def plot_distribution(items_per_visitor: pd.Series):
 
     # Fonction de survie (log-log) : la queue d'une distribution "normale"
     # de navigation suit une loi de puissance à peu près rectiligne en
-    # log-log ; un coude / une rupture de pente signalerait un second régime
-    # (bot) distinct plutôt qu'une simple continuation de la même queue.
+    # log-log ; un coude / une rupture de pente me signalerait un second
+    # régime (bot) distinct plutôt qu'une simple continuation de la même
+    # queue.
     sorted_vals = np.sort(items_per_visitor.values)[::-1]
     rank = np.arange(1, len(sorted_vals) + 1)
     survival = rank / len(sorted_vals)
@@ -99,9 +103,9 @@ def plot_distribution(items_per_visitor: pd.Series):
 
 
 def sensitivity_table(df: pd.DataFrame) -> pd.DataFrame:
-    """Pour chaque seuil candidat, ré-exécute le pipeline complet de
+    """Pour chaque seuil candidat, je ré-exécute le pipeline complet de
     recommend_retailrocket.py (mêmes filtres, même calcul de similarité) et
-    mesure l'effet sur le résultat final -- pas seulement sur le nombre de
+    je mesure l'effet sur le résultat final -- pas seulement sur le nombre de
     lignes filtrées en amont."""
     rows = []
     for max_items in CANDIDATE_THRESHOLDS:

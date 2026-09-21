@@ -1,7 +1,7 @@
-"""Modèle de scoring churn sur churn.customer_profiles.
+"""Mon modèle de scoring churn sur churn.customer_profiles.
 
-Étape 1 : comparaison Régression Logistique vs Random Forest sur un split
-train/test, avant de choisir le modèle final et de scorer toute la base.
+Étape 1 : je compare Régression Logistique vs Random Forest sur un split
+train/test, avant de choisir mon modèle final et de scorer toute la base.
 """
 import logging
 from datetime import datetime
@@ -20,10 +20,11 @@ from config import get_engine
 import model_registry
 
 MODEL_NAME = "churn_scoring"
-# Versionné par horodatage (un run = une version distincte) plutôt qu'une
-# constante fixe : nécessaire pour que model_registry puisse distinguer
-# une nouvelle exécution de la version actuellement en production, et pour
-# que le rollback ait un "avant" et un "après" identifiables.
+# Je versionne par horodatage (un run = une version distincte) plutôt que par
+# une constante fixe : nécessaire pour que mon model_registry puisse
+# distinguer une nouvelle exécution de la version actuellement en
+# production, et pour que mon rollback ait un "avant" et un "après"
+# identifiables.
 MODEL_VERSION = f"random_forest_{datetime.now():%Y%m%d_%H%M%S}"
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
@@ -71,9 +72,9 @@ def evaluate(name, pipeline, X_test, y_test):
     return roc_auc, pr_auc
 
 def log_metrics_history(engine, metrics: dict):
-    """Écrit dans analytics.model_metrics_history (append-only, jamais vidé,
-    contrairement à analytics.churn_scores) -- fondation pour un futur suivi
-    de dérive dans le temps."""
+    """J'écris dans analytics.model_metrics_history (append-only, jamais
+    vidé, contrairement à analytics.churn_scores) -- fondation pour un futur
+    suivi de dérive dans le temps."""
     rows = pd.DataFrame([
         {"model_name": MODEL_NAME, "model_version": MODEL_VERSION, "metric_name": k, "metric_value": v}
         for k, v in metrics.items()
@@ -110,14 +111,15 @@ def main():
             print("\nTop 15 variables les plus importantes (Random Forest) :")
             print(importances.sort_values(ascending=False).head(15).to_string())
 
-    # Modèle retenu (voir comparaison ci-dessus) : Random Forest.
-    # Scoring par validation croisée (5 plis) plutôt que sur un modèle
-    # entraîné puis réappliqué aux mêmes données : un Random Forest de 300
-    # arbres mémorise quasiment le train set, donc predict_proba "in-sample"
-    # donnerait des probabilités artificiellement extrêmes (proches de 0/1).
-    # Avec cross_val_predict, chaque client est scoré par un modèle qui ne
-    # l'a pas vu à l'entraînement -> scores honnêtes, cohérents avec l'AUC
-    # mesuré sur le test set, tout en couvrant 100% de la base.
+    # Modèle que je retiens (voir ma comparaison ci-dessus) : Random Forest.
+    # Je fais mon scoring par validation croisée (5 plis) plutôt que sur un
+    # modèle entraîné puis réappliqué aux mêmes données : un Random Forest de
+    # 300 arbres mémorise quasiment le train set, donc predict_proba
+    # "in-sample" me donnerait des probabilités artificiellement extrêmes
+    # (proches de 0/1). Avec cross_val_predict, chaque client est scoré par
+    # un modèle qui ne l'a pas vu à l'entraînement -> scores honnêtes,
+    # cohérents avec l'AUC que je mesure sur le test set, tout en couvrant
+    # 100% de ma base.
     final_model = RandomForestClassifier(
         n_estimators=300, class_weight="balanced", random_state=42, n_jobs=-1)
     final_pipeline = Pipeline([("prep", build_preprocessor()), ("model", final_model)])
@@ -139,8 +141,8 @@ def main():
     log.info("Répartition des niveaux de risque :\n%s",
              scores["risk_level"].value_counts().to_string())
 
-    # Importance des variables : nécessite un modèle réellement entraîné
-    # (cross_val_predict clone l'estimateur en interne à chaque pli, il ne
+    # Importance des variables : j'ai besoin d'un modèle réellement entraîné
+    # (cross_val_predict clone l'estimateur en interne à chaque pli, il ne me
     # laisse pas de modèle final entraîné). Pas de fuite de données ici :
     # contrairement aux probabilités par client, l'importance est une mesure
     # globale de la structure apprise, pas une prédiction individuelle.
@@ -152,12 +154,13 @@ def main():
         "model_version": MODEL_VERSION,
     })
 
-    # Décision de promotion : une nouvelle version n'écrase les tables live
-    # (donc ce que sert l'API) que si elle n'est pas significativement moins
-    # bonne que la version actuellement en production. Sinon, ses résultats
-    # sont conservés pour inspection (churn_scores_candidate /
-    # churn_feature_importance_candidate) mais la version active continue de
-    # servir. Voir analytics/model_registry.py.
+    # Décision de promotion : je ne laisse une nouvelle version écraser mes
+    # tables live (donc ce que sert mon API) que si elle n'est pas
+    # significativement moins bonne que la version actuellement en
+    # production. Sinon, je conserve ses résultats pour inspection
+    # (churn_scores_candidate / churn_feature_importance_candidate) mais je
+    # laisse la version active continuer de servir. Voir
+    # analytics/model_registry.py.
     decision = model_registry.decide_promotion(engine, MODEL_NAME, metrics_to_log["oof_roc_auc"])
     metrics_to_log["promoted"] = 1.0 if decision["promote"] else 0.0
     log.info("Décision de promotion (%s) : %s", MODEL_VERSION, decision["reason"])

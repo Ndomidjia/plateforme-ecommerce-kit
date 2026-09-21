@@ -1,26 +1,27 @@
-"""Recommandation collaborative item-item sur Retailrocket.
+"""Ma recommandation collaborative item-item sur Retailrocket.
 
-Principe : deux produits sont "similaires" s'ils sont souvent consultés par
-les mêmes visiteurs (co-occurrence), mesurée par une similarité cosinus sur
-la matrice binaire visiteur x produit. Approche classique "les clients qui
-ont consulté X ont aussi consulté Y", tous types d'événements confondus
-(view/addtocart/transaction) : ce qui compte ici est la co-visite, pas la
-conversion (déjà traitée dans le funnel).
+Principe : je considère que deux produits sont "similaires" s'ils sont
+souvent consultés par les mêmes visiteurs (co-occurrence), mesurée par une
+similarité cosinus sur la matrice binaire visiteur x produit. Approche
+classique "les clients qui ont consulté X ont aussi consulté Y", tous types
+d'événements confondus (view/addtocart/transaction) : ce qui compte ici est
+la co-visite, pas la conversion (que je traite déjà dans le funnel).
 
-Nettoyage préalable :
-- visiteurs à >200 produits distincts exclus (comportement de bot/crawler :
-  118 visiteurs sur 1,4M, mais des millions de paires mécaniques si on les
-  garde). Seuil testé par analyse de sensibilité, pas choisi au jugé : voir
+Mon nettoyage préalable :
+- j'exclus les visiteurs à >200 produits distincts (comportement de
+  bot/crawler : 118 visiteurs sur 1,4M, mais des millions de paires
+  mécaniques si je les garde). J'ai testé ce seuil par analyse de
+  sensibilité, je ne l'ai pas choisi au jugé : voir
   analytics/analyse_seuil_bot.py et docs/limitations-methodologiques.md
-  ("Le seuil de 200 produits, testé — pas juste affirmé") -- la distribution
-  réelle n'a pas de cassure nette à 200 (longue traîne continue), mais le
-  résultat final (couverture catalogue, volume de recommandations) est
-  stable sur la plage 100-500 testée, ce qui rend ce choix robuste sans être
-  pour autant "optimal" au sens strict.
-- visiteurs à 1 seul produit distinct exclus : ils ne contribuent à aucune
-  co-occurrence, inutile de les charger en mémoire. C'est en réalité ce
-  filtre, pas la borne haute, qui explique l'essentiel des 79,5% de
-  visiteurs exclus (voir analyse de sensibilité).
+  ("Le seuil de 200 produits, que j'ai testé — pas juste affirmé") -- ma
+  distribution réelle n'a pas de cassure nette à 200 (longue traîne
+  continue), mais mon résultat final (couverture catalogue, volume de
+  recommandations) est stable sur la plage 100-500 que j'ai testée, ce qui
+  rend ce choix robuste sans être pour autant "optimal" au sens strict.
+- j'exclus les visiteurs à 1 seul produit distinct : ils ne contribuent à
+  aucune co-occurrence, inutile de les charger en mémoire. C'est en réalité
+  ce filtre, pas la borne haute, qui explique l'essentiel des 79,5% de
+  visiteurs que j'exclus (voir mon analyse de sensibilité).
 """
 import logging
 import numpy as np
@@ -35,10 +36,11 @@ log = logging.getLogger("analytics.recommend_retailrocket")
 MIN_ITEMS_PER_VISITOR = 2
 MAX_ITEMS_PER_VISITOR = 200
 
-# Requête volontairement simple : le filtrage (2..200 produits par visiteur)
-# se fait ensuite côté pandas. Une première version avec un WHERE visitor_id
-# IN (sous-requête GROUP BY/HAVING) a produit un plan d'exécution
-# pathologique (>1h30 sans terminer) — ce DISTINCT seul reste rapide.
+# Requête que j'ai volontairement gardée simple : mon filtrage (2..200
+# produits par visiteur) se fait ensuite côté pandas. Ma première version
+# avec un WHERE visitor_id IN (sous-requête GROUP BY/HAVING) a produit un
+# plan d'exécution pathologique (>1h30 sans terminer) — ce DISTINCT seul
+# reste rapide.
 QUERY = "SELECT DISTINCT visitor_id, item_id FROM retailrocket.events"
 
 def load_interactions(engine) -> pd.DataFrame:

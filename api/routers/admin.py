@@ -1,7 +1,8 @@
-"""Endpoints réservés aux admins : KPIs d'administration (comptes API,
+"""Mes endpoints réservés aux admins : KPIs d'administration (comptes API,
 activité RGPD, métadonnées du modèle de churn) et recalcul à la demande des
-modules ML. Distinct de /rgpd (qui manipule des données personnelles) : ici,
-uniquement des métadonnées système et des actions opérationnelles.
+modules ML. Je les distingue de /rgpd (qui manipule des données
+personnelles) : ici, uniquement des métadonnées système et des actions
+opérationnelles.
 """
 import subprocess
 import sys
@@ -31,10 +32,10 @@ MODULE_SCRIPTS = {
     "customer_360": "customer_360_olist.py",  # dépend de rfm/sentiment/market_basket : à lancer après eux
 }
 
-# État des recalculs en mémoire (process, horodatages) : suffisant pour une
-# API mono-processus comme ici (un seul worker uvicorn). Ne survit pas à un
-# redémarrage de l'API et ne fonctionnerait pas avec plusieurs workers -- une
-# vraie file de tâches (Celery/RQ) serait nécessaire en production.
+# Mon état des recalculs en mémoire (process, horodatages) : suffisant pour
+# mon API mono-processus comme ici (un seul worker uvicorn). Ne survit pas à
+# un redémarrage de l'API et ne fonctionnerait pas avec plusieurs workers --
+# une vraie file de tâches (Celery/RQ) me serait nécessaire en production.
 _jobs: dict[str, dict] = {}
 
 class UserRoleCount(BaseModel):
@@ -136,17 +137,19 @@ def trigger_recompute(module: str):
 
 
 # ---------------------------------------------------------------------------
-# Registre de versions de modèles (voir analytics/model_registry.py) :
-# quelle version est active en production pour chaque modèle entraîné, et
-# retour en arrière (rollback) d'un niveau si un recalcul a promu une version
-# qui se révèle problématique malgré le contrôle automatique à la promotion.
+# Mon registre de versions de modèles (voir analytics/model_registry.py) :
+# quelle version est active en production pour chaque modèle que j'entraîne,
+# et retour en arrière (rollback) d'un niveau si un recalcul a promu une
+# version qui se révèle problématique malgré mon contrôle automatique à la
+# promotion.
 # ---------------------------------------------------------------------------
 
 # Tables live à restaurer depuis leur sauvegarde (<table>_previous) lors d'un
-# rollback, par modèle -- dupliqué depuis les scripts analytics/ plutôt que
-# partagé : ces scripts et l'API tournent dans deux répertoires/process
-# distincts (voir analytics/config.py vs api/config.py), un import partagé
-# n'apporterait pas grand-chose pour 2 lignes de mapping statique.
+# rollback, par modèle -- je duplique ça depuis mes scripts analytics/
+# plutôt que de le partager : ces scripts et mon API tournent dans deux
+# répertoires/process distincts (voir analytics/config.py vs api/config.py),
+# un import partagé ne m'apporterait pas grand-chose pour 2 lignes de mapping
+# statique.
 MODEL_LIVE_TABLES = {
     "churn_scoring": ["churn_scores", "churn_feature_importance"],
     "customer_360_proxy": ["customer_360"],
@@ -175,11 +178,11 @@ def list_model_registry(db: Connection = Depends(get_db)):
 
 @router.post("/models/{model_name}/rollback", response_model=ModelRegistryEntry)
 def rollback_model(model_name: str, db: Connection = Depends(get_db)):
-    """Restaure, pour ce modèle, l'état des tables live sauvegardé lors de la
-    DERNIÈRE promotion (un seul niveau de rollback -- voir
-    analytics/model_registry.py pour la justification). Le résultat écrasé
-    par le rollback est conservé dans `<table>_candidate` pour inspection,
-    comme pour une version rejetée automatiquement."""
+    """Je restaure, pour ce modèle, l'état des tables live sauvegardé lors de
+    la DERNIÈRE promotion (un seul niveau de rollback -- voir
+    analytics/model_registry.py pour ma justification). Je conserve le
+    résultat écrasé par le rollback dans `<table>_candidate` pour
+    inspection, comme pour une version rejetée automatiquement."""
     if model_name not in MODEL_LIVE_TABLES:
         raise HTTPException(status_code=404, detail=f"Modèle inconnu. Valeurs possibles : {list(MODEL_LIVE_TABLES)}")
 

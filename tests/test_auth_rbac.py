@@ -1,7 +1,8 @@
-"""Authentification (JWT) et contrôle d'accès par rôle (RBAC) -- jusqu'ici
-jamais vérifiés que manuellement en cliquant dans le dashboard. C'est la
-frontière de sécurité de toute l'API : un admin/analyst mal cloisonné expose
-les endpoints RGPD (données personnelles brutes) ou d'administration."""
+"""Mon authentification (JWT) et mon contrôle d'accès par rôle (RBAC) --
+jusqu'ici je ne les vérifiais que manuellement en cliquant dans mon
+dashboard. C'est la frontière de sécurité de toute mon API : un
+admin/analyst mal cloisonné expose mes endpoints RGPD (données personnelles
+brutes) ou d'administration."""
 
 
 def test_login_success_returns_bearer_token(client, admin_token):

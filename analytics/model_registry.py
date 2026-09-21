@@ -1,33 +1,34 @@
-"""Registre de versions de modèles : décide si une nouvelle exécution doit
-remplacer ("promouvoir") le modèle actif en production, et conserve un point
-de retour en arrière (rollback) d'un niveau.
+"""Mon registre de versions de modèles : je décide si une nouvelle exécution
+doit remplacer ("promouvoir") le modèle actif en production, et je conserve
+un point de retour en arrière (rollback) d'un niveau.
 
-Contexte (retour de soutenance) : avant ce module, un recalcul à la demande
+Contexte (retour de soutenance) : avant ce module, mon recalcul à la demande
 (cf. api/routers/admin.py) écrasait toujours churn_scores / customer_360 en
 place (TRUNCATE + réécriture), sans comparaison avec le modèle en place ni
 possibilité de revenir en arrière -- un modèle moins bon pouvait remplacer
-silencieusement un meilleur. Ce module ferme ce trou :
-1. la nouvelle version n'est promue que si elle n'est pas significativement
+silencieusement un meilleur. J'ai écrit ce module pour fermer ce trou :
+1. je ne promeus la nouvelle version que si elle n'est pas significativement
    moins bonne que la version active (tolérance PROMOTION_TOLERANCE) ;
-2. si elle est rejetée, les tables live ne sont pas touchées -- le résultat
-   du run rejeté est quand même écrit dans une table `_candidate`, pour
-   inspection, plutôt que silencieusement jeté ;
-3. avant chaque promotion, l'état sortant est sauvegardé dans une table
-   `_previous`, ce qui permet un rollback d'un niveau via l'API admin.
+2. si je la rejette, je ne touche pas aux tables live -- j'écris quand même
+   le résultat du run rejeté dans une table `_candidate`, pour inspection,
+   plutôt que de le jeter silencieusement ;
+3. avant chaque promotion, je sauvegarde l'état sortant dans une table
+   `_previous`, ce qui permet un rollback d'un niveau via mon API admin.
 
-Pourquoi un rollback à un niveau plutôt qu'un historique complet versionné
-(type MLflow) : proportionné à l'échelle du projet -- voir sql/11_model_registry.sql.
+Pourquoi j'ai choisi un rollback à un niveau plutôt qu'un historique complet
+versionné (type MLflow) : proportionné à l'échelle de mon projet -- voir
+sql/11_model_registry.sql.
 """
 import logging
 from sqlalchemy import text
 
 log = logging.getLogger("analytics.model_registry")
 
-# Une nouvelle version n'est promue que si sa métrique n'est pas inférieure
-# de plus de ce seuil à celle de la version active. Tolère le bruit naturel
-# d'un ré-entraînement (même config, même données -> métrique légèrement
-# différente à chaque run à cause de l'aléatoire résiduel), sans laisser
-# passer une vraie régression.
+# Je ne promeus une nouvelle version que si sa métrique n'est pas inférieure
+# de plus de ce seuil à celle de la version active. Ça tolère le bruit
+# naturel d'un ré-entraînement (même config, même données -> métrique
+# légèrement différente à chaque run à cause de l'aléatoire résiduel), sans
+# laisser passer une vraie régression.
 PROMOTION_TOLERANCE = 0.01
 
 
@@ -43,8 +44,8 @@ def get_active(engine, model_name: str) -> dict | None:
         ).mappings().first()
     if row is None:
         return None
-    # NUMERIC -> decimal.Decimal via psycopg2 : reconverti en float pour
-    # rester arithmétiquement compatible avec les métriques sklearn (float).
+    # NUMERIC -> decimal.Decimal via psycopg2 : je reconvertis en float pour
+    # rester arithmétiquement compatible avec mes métriques sklearn (float).
     result = dict(row)
     if result.get("active_metric") is not None:
         result["active_metric"] = float(result["active_metric"])
@@ -85,9 +86,10 @@ def _ensure_shadow_table(conn, table: str, suffix: str):
 
 
 def snapshot_before_promotion(engine, tables: list[str]):
-    """A appeler juste AVANT de tronquer/réécrire les tables live -- uniquement
-    si decide_promotion() a répondu promote=True. Écrase le snapshot
-    précédent (rollback à un seul niveau, voir docstring du module)."""
+    """J'appelle ça juste AVANT de tronquer/réécrire les tables live --
+    uniquement si decide_promotion() a répondu promote=True. J'écrase le
+    snapshot précédent (rollback à un seul niveau, voir docstring du
+    module)."""
     with engine.begin() as conn:
         for t in tables:
             shadow = _ensure_shadow_table(conn, t, "previous")
@@ -97,8 +99,8 @@ def snapshot_before_promotion(engine, tables: list[str]):
 
 
 def write_rejected_candidate(engine, table: str, df):
-    """Écrit le résultat d'une version rejetée dans `<table>_candidate`, pour
-    inspection, SANS toucher à la table live (qui continue de servir
+    """J'écris le résultat d'une version rejetée dans `<table>_candidate`,
+    pour inspection, SANS toucher à la table live (qui continue de servir
     l'ancienne version, active)."""
     with engine.begin() as conn:
         shadow = _ensure_shadow_table(conn, table, "candidate")

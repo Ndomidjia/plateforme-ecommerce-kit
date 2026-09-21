@@ -1,22 +1,23 @@
-"""Fixtures partagées.
+"""Mes fixtures partagées.
 
-Répond à la question de soutenance "aucun test automatisé n'existe, comment
-la fiabilité a-t-elle été vérifiée jusqu'à présent ?" : avant ce dossier,
-c'était manuel (contrôles SQL de sql/99_controles.sql exécutés à la main
-après chaque ETL, métriques de validation croisée relues dans les logs,
-inspection visuelle du dashboard pendant le développement -- voir
-docs/journal-de-bord.md pour des incidents trouvés ainsi). Ce dossier
-formalise et automatise une partie de ça (qualité des données, RBAC de
-l'API, garde-fou de promotion de modèle) ; voir docs/tests.md pour le
-périmètre couvert et, également important, ce qui ne l'est PAS encore
-(pas de test sur les notebooks EDA, pas de test end-to-end du dashboard React).
+Je réponds ici à la question de soutenance "aucun test automatisé n'existe,
+comment la fiabilité a-t-elle été vérifiée jusqu'à présent ?" : avant ce
+dossier, je vérifiais manuellement (contrôles SQL de sql/99_controles.sql
+exécutés à la main après chaque ETL, métriques de validation croisée
+relues dans les logs, inspection visuelle du dashboard pendant mon
+développement -- voir docs/journal-de-bord.md pour des incidents que j'ai
+trouvés ainsi). Ce dossier formalise et automatise une partie de ça
+(qualité des données, RBAC de l'API, garde-fou de promotion de modèle) ;
+voir docs/tests.md pour le périmètre que je couvre et, également important,
+ce que je ne couvre PAS encore (pas de test sur mes notebooks EDA, pas de
+test end-to-end de mon dashboard React).
 
-Ces tests tournent contre la même base PostgreSQL que le développement (pas
-de base de test isolée) : choix assumé, proportionné à l'échelle du projet
-(voir docs/tests.md) -- ils lisent les données existantes (contrôles qualité,
-RBAC) ou nettoient explicitement ce qu'ils écrivent (modèle factice dans
-test_model_registry.py), sans jamais toucher aux tables analytics.* réelles
-(churn_scores, customer_360...).
+Mes tests tournent contre la même base PostgreSQL que mon développement
+(pas de base de test isolée) : choix que j'assume, proportionné à l'échelle
+de mon projet (voir docs/tests.md) -- ils lisent les données existantes
+(contrôles qualité, RBAC) ou nettoient explicitement ce qu'ils écrivent
+(modèle factice dans test_model_registry.py), sans jamais toucher aux
+tables analytics.* réelles (churn_scores, customer_360...).
 """
 import os
 import sys
@@ -31,13 +32,13 @@ API_DIR = REPO_ROOT / "api"
 
 load_dotenv(REPO_ROOT / ".env")
 
-# Seul répertoire ajouté à sys.path pour toute la session de tests : api/ et
-# analytics/ définissent chacun leur propre config.py (contenu différent,
-# voir api/config.py vs analytics/config.py) -- les mélanger sur sys.path
-# ferait résoudre `import config` de façon non déterministe selon l'ordre
-# d'import. test_model_registry.py charge analytics/model_registry.py par
-# chemin direct (importlib) plutôt que par sys.path, précisément pour éviter
-# ce piège.
+# Seul répertoire que j'ajoute à sys.path pour toute la session de tests :
+# api/ et analytics/ définissent chacun leur propre config.py (contenu
+# différent, voir api/config.py vs analytics/config.py) -- les mélanger sur
+# sys.path ferait résoudre `import config` de façon non déterministe selon
+# l'ordre d'import. Je charge analytics/model_registry.py par chemin direct
+# (importlib) plutôt que par sys.path dans test_model_registry.py,
+# précisément pour éviter ce piège.
 if str(API_DIR) not in sys.path:
     sys.path.insert(0, str(API_DIR))
 

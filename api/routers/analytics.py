@@ -1,9 +1,9 @@
-"""Endpoints de lecture sur les résultats des modules ML (schéma analytics).
+"""Mes endpoints de lecture sur les résultats des modules ML (schéma analytics).
 
-Accessibles aux deux rôles (admin et analyst) : ce sont des données déjà
-agrégées/anonymisées au niveau segment ou produit, pas des données
-personnelles brutes (celles-ci sont derrière les endpoints RGPD, protégés
-plus strictement).
+Je les rends accessibles aux deux rôles (admin et analyst) : ce sont des
+données déjà agrégées/anonymisées au niveau segment ou produit, pas des
+données personnelles brutes (celles-ci sont derrière mes endpoints RGPD,
+que je protège plus strictement).
 """
 import statistics
 from typing import Optional
@@ -19,14 +19,14 @@ from deps import require_role
 router = APIRouter(prefix="/analytics", tags=["analytics"], dependencies=[Depends(require_role("admin", "analyst"))])
 
 def _customer_360_reliability(db: Connection) -> tuple[float, str]:
-    """Lit l'AUC hors échantillon (oof_roc_auc) de la version ACTIVE (promue)
-    de analytics/customer_360_olist.py, via analytics.model_registry, plutôt
-    qu'une valeur codée en dur ou que la dernière ligne de
+    """Je lis l'AUC hors échantillon (oof_roc_auc) de la version ACTIVE
+    (promue) de analytics/customer_360_olist.py, via analytics.model_registry,
+    plutôt qu'une valeur codée en dur ou que la dernière ligne de
     model_metrics_history — cette dernière peut désormais contenir un run
     REJETÉ (non promu, voir analytics/model_registry.py), dont la métrique ne
-    correspondrait plus aux données réellement servies par
+    correspondrait plus aux données que je sers réellement via
     analytics.customer_360. Voir docs/limitations-methodologiques.md pour
-    l'interprétation."""
+    mon interprétation."""
     auc = db.execute(
         text("SELECT active_metric FROM analytics.model_registry WHERE model_name = 'customer_360_proxy'")
     ).scalar()
@@ -242,12 +242,13 @@ def get_overview(db: Connection = Depends(get_db)):
     ).mappings().first()
 
     # `.first()` sur un GROUP BY / ORDER BY ... LIMIT 1 renvoie None (zéro
-    # ligne), pas une ligne de NULL, quand la table source est vide (avant le
+    # ligne), pas une ligne de NULL, quand ma table source est vide (avant le
     # premier calcul du module -- ex. juste après `docker compose up`, ou en
     # CI sur un schéma sans données, voir tests/test_data_quality.py) :
     # contrairement à un agrégat simple (AVG/SUM) qui renvoie toujours une
-    # ligne. Sans ce garde-fou, la page d'accueil du dashboard renvoyait une
-    # 500 tant qu'aucun module n'avait encore tourné.
+    # ligne. Sans ce garde-fou que j'ai ajouté, ma page d'accueil du
+    # dashboard renvoyait une 500 tant qu'aucun module n'avait encore
+    # tourné -- bug que j'ai découvert en mettant en place ma CI.
     rfm_row = db.execute(
         text("SELECT segment, COUNT(*) AS count FROM analytics.rfm_segments "
              "GROUP BY segment ORDER BY count DESC LIMIT 1")

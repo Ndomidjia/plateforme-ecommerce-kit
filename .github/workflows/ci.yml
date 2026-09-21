@@ -1,15 +1,15 @@
 name: CI
 
-# Répond au retour de soutenance "absence de CI/CD confirmée, processus de
-# déploiement flou" : ce pipeline tourne les tests automatisés (tests/) à
-# chaque push/PR, sur une base PostgreSQL fraîche (schéma seul -- les CSV
-# Kaggle sources ne sont pas commités, voir tests/test_data_quality.py et
-# docs/deploiement.md pour ce que ça implique concrètement).
+# Je réponds ici au retour de soutenance "absence de CI/CD confirmée,
+# processus de déploiement flou" : ce pipeline tourne mes tests automatisés
+# (tests/) à chaque push/PR, sur une base PostgreSQL fraîche (schéma seul --
+# je ne commite pas mes CSV Kaggle sources, voir tests/test_data_quality.py
+# et docs/deploiement.md pour ce que ça implique concrètement).
 #
-# Ce que ce pipeline NE fait PAS (limite assumée, voir docs/deploiement.md) :
-# pas de déploiement automatique (CD) -- il n'y a pas d'environnement
-# hébergé vers lequel déployer pour ce projet. "CI" au sens strict, pas
-# "CI/CD" complet.
+# Ce que ce pipeline NE fait PAS (limite que j'assume, voir
+# docs/deploiement.md) : pas de déploiement automatique (CD) -- je n'ai pas
+# d'environnement hébergé vers lequel déployer pour ce projet. "CI" au sens
+# strict, pas "CI/CD" complet.
 
 on:
   push:

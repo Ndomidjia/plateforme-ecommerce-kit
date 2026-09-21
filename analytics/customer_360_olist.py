@@ -1,32 +1,34 @@
-"""Vue client 360° unifiée sur Olist : RFM + proxy de risque de non-réachat
-+ sentiment + recommandation de catégorie, combinés pour chaque client Olist.
+"""Ma vue client 360° unifiée sur Olist : RFM + proxy de risque de
+non-réachat + sentiment + recommandation de catégorie, combinés pour chaque
+client Olist.
 
-Contexte (remarque de l'encadrant) : une fusion brute des 3 datasets
+Contexte (remarque de mon encadrant) : une fusion brute des 3 datasets
 (Olist/Retailrocket/churn) est impossible — aucun identifiant commun entre
-eux. Ce module répond à la demande de "fusionner les données" au bon
-niveau : fusionner les RÉSULTATS d'analyse sur UNE MÊME population (les
-clients Olist), en réutilisant la méthodologie validée sur le dataset churn
-labellisé (class_weight, validation croisée) mais appliquée à un proxy
-construit depuis le comportement d'achat réel d'Olist.
+eux. J'ai écrit ce module pour répondre à sa demande de "fusionner les
+données" au bon niveau : fusionner les RÉSULTATS d'analyse sur UNE MÊME
+population (les clients Olist), en réutilisant la méthodologie que j'ai
+validée sur le dataset churn labellisé (class_weight, validation croisée)
+mais appliquée à un proxy que je construis depuis le comportement d'achat
+réel d'Olist.
 
-Point méthodologique fondamental à ne jamais perdre de vue : il n'existe
-PAS de vraie étiquette de churn pour les clients Olist (contrairement au
-dataset churn.customer_profiles). Le "risque" calculé ici est un PROXY —
-une estimation construite par nous, pas une vérité observée. Voir
-docs/limitations-methodologiques.md.
+Point méthodologique fondamental que je ne dois jamais perdre de vue : il
+n'existe PAS de vraie étiquette de churn pour les clients Olist
+(contrairement au dataset churn.customer_profiles). Le "risque" que je
+calcule ici est un PROXY — une estimation que je construis moi-même, pas une
+vérité observée. Voir docs/limitations-methodologiques.md.
 
-v2 (revue critique) par rapport à v1 :
-- retrait de review_score et delivery_delay_days des features : ce sont des
+Ma v2 (revue critique que j'ai faite) par rapport à ma v1 :
+- j'ai retiré review_score et delivery_delay_days des features : ce sont des
   informations connues APRÈS la livraison (parfois des semaines après le
   1er achat), donc inutilisables pour un vrai usage marketing "détecter tôt"
-  -- ne garder que ce qui est connu AU MOMENT du 1er achat.
-- comparaison de 3 configurations (Random Forest avec/sans class_weight,
-  Gradient Boosting) au lieu d'une seule config testée une fois -- v1
+  -- je ne garde que ce qui est connu AU MOMENT du 1er achat.
+- j'ai comparé 3 configurations (Random Forest avec/sans class_weight,
+  Gradient Boosting) au lieu d'une seule config testée une fois -- ma v1
   concluait "quasiment aucun signal" après un seul essai, ce qui était
   insuffisant pour l'affirmer avec confiance.
-- métriques journalisées dans analytics.model_metrics_history (append-only)
-  pour permettre un futur suivi de dérive, au lieu d'être seulement
-  affichées dans les logs et perdues au recalcul suivant.
+- je journalise les métriques dans analytics.model_metrics_history
+  (append-only) pour permettre un futur suivi de dérive, au lieu de
+  seulement les afficher dans les logs et les perdre au recalcul suivant.
 """
 import logging
 from datetime import datetime
@@ -48,17 +50,17 @@ log = logging.getLogger("analytics.customer_360_olist")
 
 MODEL_NAME = "customer_360_proxy"
 # "v2" = méthodologie (voir docstring ci-dessus) ; l'horodatage rend chaque
-# exécution distincte pour model_registry (promotion/rollback, voir
+# exécution distincte pour mon model_registry (promotion/rollback, voir
 # churn_model.py pour le même mécanisme).
 MODEL_VERSION = f"proxy_risk_v2_{datetime.now():%Y%m%d_%H%M%S}"
-REPURCHASE_PERCENTILE = 0.75  # justifié empiriquement : voir étape 1
+REPURCHASE_PERCENTILE = 0.75  # que j'ai justifié empiriquement : voir étape 1
 
 # Uniquement des variables connues AU MOMENT du 1er achat (voir docstring v2).
 NUMERIC_FEATURES = ["first_order_value", "first_order_freight", "payment_installments"]
 CATEGORICAL_FEATURES = ["payment_type", "customer_state", "first_category"]
 
-# Candidats comparés avant de choisir un modèle final, plutôt qu'une seule
-# configuration testée une fois (voir docstring v2).
+# Candidats que je compare avant de choisir un modèle final, plutôt qu'une
+# seule configuration testée une fois (voir docstring v2).
 MODEL_CANDIDATES = {
     "random_forest_balanced": lambda: RandomForestClassifier(
         n_estimators=300, class_weight="balanced", random_state=42, n_jobs=-1),
@@ -176,9 +178,10 @@ def build_preprocessor() -> ColumnTransformer:
     categorical_pipe = Pipeline([
         ("impute", SimpleImputer(strategy="most_frequent")),
         # sparse_output=False : HistGradientBoostingClassifier (un des 3
-        # candidats comparés) n'accepte pas les matrices creuses, contrairement
-        # à RandomForestClassifier. Volume de données modeste (dizaines de
-        # milliers de lignes, ~100 colonnes après encodage) : dense reste léger.
+        # candidats que je compare) n'accepte pas les matrices creuses,
+        # contrairement à RandomForestClassifier. Mon volume de données est
+        # modeste (dizaines de milliers de lignes, ~100 colonnes après
+        # encodage) : dense reste léger.
         ("onehot", OneHotEncoder(handle_unknown="ignore", sparse_output=False)),
     ])
     return ColumnTransformer([
@@ -303,11 +306,12 @@ def main():
     labeled["proxy_risk_proba"] = oof_proba
     metrics_to_log["oof_roc_auc"] = roc_auc_score(y, oof_proba)
 
-    # Clients trop récents (censurés) : modèle final ré-entraîné sur TOUT le
-    # jeu labellisé, appliqué aux clients dont l'issue n'est pas encore
-    # connue -- pas de fuite ici (contrairement au churn scoring initial) :
-    # ces clients n'ont JAMAIS fait partie de l'entraînement, c'est un vrai
-    # scoring hors échantillon, comme en production.
+    # Clients trop récents (censurés) : je ré-entraîne mon modèle final sur
+    # TOUT le jeu labellisé, puis je l'applique aux clients dont l'issue
+    # n'est pas encore connue -- pas de fuite ici (contrairement à mon churn
+    # scoring initial) : ces clients n'ont JAMAIS fait partie de
+    # l'entraînement, c'est un vrai scoring hors échantillon, comme en
+    # production.
     final_pipeline.fit(X, y)
     censored = df[df["is_censored"]].copy()
     if len(censored):
@@ -315,8 +319,8 @@ def main():
 
     scored = pd.concat([labeled, censored], ignore_index=True)
 
-    # Seuils de risque déterminés sur la distribution réelle des scores
-    # (tercile) plutôt que des seuils fixes arbitraires.
+    # Seuils de risque que je détermine sur la distribution réelle des
+    # scores (tercile) plutôt que des seuils fixes arbitraires.
     q1, q2 = scored["proxy_risk_proba"].quantile([1 / 3, 2 / 3])
     scored["proxy_risk_level"] = pd.cut(scored["proxy_risk_proba"], bins=[-0.01, q1, q2, 1.01],
                                         labels=["low", "medium", "high"])
@@ -344,11 +348,11 @@ def main():
 
     metrics_to_log["pct_with_recommendation"] = float(out["recommended_category"].notna().mean())
 
-    # Même garde-fou que pour le scoring churn (voir analytics/model_registry.py) :
-    # une nouvelle version n'est promue en production que si elle n'est pas
-    # significativement moins bonne que la version active. Répond directement
-    # à la question de soutenance "un nouveau modèle moins bon écrase-t-il
-    # l'ancien sans rollback possible ?".
+    # Même garde-fou que pour mon scoring churn (voir
+    # analytics/model_registry.py) : je ne promeus une nouvelle version en
+    # production que si elle n'est pas significativement moins bonne que la
+    # version active. Ça répond directement à la question de soutenance "un
+    # nouveau modèle moins bon écrase-t-il l'ancien sans rollback possible ?".
     decision = model_registry.decide_promotion(engine, MODEL_NAME, metrics_to_log["oof_roc_auc"])
     metrics_to_log["promoted"] = 1.0 if decision["promote"] else 0.0
     log.info("Décision de promotion (%s) : %s", MODEL_VERSION, decision["reason"])

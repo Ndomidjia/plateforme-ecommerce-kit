@@ -1,8 +1,8 @@
-"""analytics/model_registry.py : garde-fou de promotion de modèle (répond à
-la question de soutenance "un nouveau modèle moins bon écrase-t-il l'ancien
-sans rollback possible ?"). Chargé par chemin direct (importlib) plutôt que
-via sys.path : voir la note dans conftest.py sur le conflit de nom entre
-api/config.py et analytics/config.py.
+"""analytics/model_registry.py : mon garde-fou de promotion de modèle
+(je réponds ici à la question de soutenance "un nouveau modèle moins bon
+écrase-t-il l'ancien sans rollback possible ?"). Je le charge par chemin
+direct (importlib) plutôt que via sys.path : voir ma note dans conftest.py
+sur le conflit de nom entre api/config.py et analytics/config.py.
 """
 import importlib.util
 import uuid
@@ -19,12 +19,12 @@ _spec.loader.exec_module(model_registry)
 
 @pytest.fixture
 def dummy_model_name():
-    """Un nom de modèle jetable et unique par test : n'interfère jamais avec
-    les vraies entrées ('churn_scoring', 'customer_360_proxy') ni entre tests
-    exécutés en parallèle."""
+    """Un nom de modèle jetable et unique par test : je ne veux jamais
+    interférer avec mes vraies entrées ('churn_scoring', 'customer_360_proxy')
+    ni entre tests exécutés en parallèle."""
     name = f"pytest_dummy_{uuid.uuid4().hex[:8]}"
     yield name
-    # nettoyage best-effort (les tables *_previous/*_candidate ne sont créées
+    # nettoyage best-effort (mes tables *_previous/*_candidate ne sont créées
     # que pour de vraies tables analytics.*, jamais pour ce nom factice)
 
 
@@ -60,9 +60,9 @@ def test_regression_beyond_tolerance_is_rejected(engine, dummy_model_name):
 
 
 def test_regression_within_tolerance_is_still_promoted(engine, dummy_model_name):
-    """Tolère le bruit naturel d'un ré-entraînement (même config -> métrique
-    légèrement différente à chaque run), sans laisser passer une vraie
-    régression -- voir PROMOTION_TOLERANCE dans analytics/model_registry.py."""
+    """Je tolère le bruit naturel d'un ré-entraînement (même config ->
+    métrique légèrement différente à chaque run), sans laisser passer une
+    vraie régression -- voir PROMOTION_TOLERANCE dans analytics/model_registry.py."""
     first = model_registry.decide_promotion(engine, dummy_model_name, 0.80)
     model_registry.promote(engine, dummy_model_name, "v1", 0.80, first)
 

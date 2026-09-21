@@ -1,17 +1,19 @@
-"""Contrôles qualité post-ETL, automatisés (traduits depuis sql/99_controles.sql,
-qui restait un script à exécuter et relire à la main) + quelques invariants
-supplémentaires sur les tables analytics.* consommées par l'API/le dashboard.
+"""Mes contrôles qualité post-ETL, automatisés (traduits depuis
+sql/99_controles.sql, que je devais exécuter et relire à la main) +
+quelques invariants supplémentaires sur les tables analytics.* que je
+consomme dans l'API/le dashboard.
 
-Ces tests distinguent explicitement deux cas très différents :
-- table VIDE (0 ligne) -> `pytest.skip()`, pas un échec. C'est le cas en CI
-  (voir .github/workflows/ci.yml) : les CSV Kaggle sources (data/raw/) ne
-  sont pas commités (volumineux, hors périmètre de licence de redistribution)
-  donc aucun ETL n'a pu tourner sur le runner -- la CI valide quand même le
-  schéma SQL, l'API et le RBAC (tests/test_auth_rbac.py,
-  tests/test_model_registry.py), juste pas la qualité de données réelles.
+Je distingue explicitement deux cas très différents :
+- table VIDE (0 ligne) -> `pytest.skip()`, pas un échec. C'est le cas en ma
+  CI (voir .github/workflows/ci.yml) : je ne commite pas mes CSV Kaggle
+  sources (data/raw/, volumineux, hors périmètre de licence de
+  redistribution) donc aucun ETL n'a pu tourner sur le runner -- ma CI
+  valide quand même le schéma SQL, l'API et le RBAC (tests/test_auth_rbac.py,
+  tests/test_model_registry.py), juste pas la qualité de mes données
+  réelles.
 - table NON VIDE mais suspecte (volumes trop bas, valeurs hors plage) ->
-  échec réel. C'est le seul cas qui compte en local/développement, où l'ETL
-  a effectivement tourné sur les vraies données.
+  échec réel. C'est le seul cas qui compte pour moi en local/développement,
+  où mon ETL a effectivement tourné sur mes vraies données.
 """
 import pytest
 from sqlalchemy import text
@@ -64,11 +66,11 @@ def test_churn_scores_proba_in_valid_range(engine):
 
 
 def test_churn_risk_level_matches_proba_bins(engine):
-    """Les bornes de risk_level sont appliquées côté Python (pd.cut,
+    """J'applique les bornes de risk_level côté Python (pd.cut,
     bins=[-0.01, 0.3, 0.6, 1.01], right=True donc bornes hautes incluses :
     low=(-0.01,0.3], medium=(0.3,0.6], high=(0.6,1.01]) au moment du scoring
     -- ce test vérifie qu'elles n'ont pas dérivé après un futur changement de
-    analytics/churn_model.py."""
+    ma part dans analytics/churn_model.py."""
     if _count(engine, "SELECT COUNT(*) FROM analytics.churn_scores") == 0:
         pytest.skip("analytics.churn_scores vide -- lancer analytics/churn_model.py (normal en CI)")
     with engine.connect() as conn:
