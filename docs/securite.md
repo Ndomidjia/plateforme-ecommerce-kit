@@ -129,6 +129,22 @@ bibliothèques tierces — voir la limite ci-dessous.
 - CORS restreint explicitement aux origines de mon dashboard (`localhost:5173` /
   `127.0.0.1:5173`), pas un `allow_origins=["*"]`.
 
+### Exposition réseau de PostgreSQL et Vault (retour de soutenance)
+
+Avant, `docker-compose.yml` publiait PostgreSQL (`5432`) et Vault (`8200`) sans préciser d'adresse
+d'écoute, ce qui fait publier Docker par défaut sur **toutes les interfaces réseau** (`0.0.0.0`) de
+ma machine, pas seulement en local. Concrètement : n'importe qui sur le même réseau (Wi-Fi partagé,
+réseau d'entreprise) aurait pu se connecter directement à ma base de données ou à Vault, en
+contournant entièrement mon API et son RBAC — une question de pare-feu/segmentation réseau qui reste
+pertinente même sans environnement hébergé (voir [deploiement.md](deploiement.md)), puisqu'elle
+concerne ma machine de développement elle-même.
+
+Corrigé : je restreins les deux mappings de ports à `127.0.0.1` (`"127.0.0.1:5432:5432"` et
+`"127.0.0.1:8200:8200"`) — accessibles uniquement depuis ma propre machine, jamais depuis le réseau.
+Un vrai déploiement hébergé irait plus loin (groupes de sécurité / pare-feu réseau au niveau de
+l'hébergeur, base de données dans un sous-réseau privé non routable depuis l'extérieur) — voir
+[deploiement.md](deploiement.md) pour ce qu'un vrai déploiement me demanderait.
+
 ## RGPD
 
 Voir [rgpd.md](rgpd.md) : droit d'accès, droit à l'oubli avec sa base légale explicite (article

@@ -10,7 +10,11 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       POSTGRES_DB: ${POSTGRES_DB}
     ports:
-      - "5432:5432"
+      # Je restreins à 127.0.0.1 : sans ça, Docker publie par défaut sur
+      # 0.0.0.0, donc n'importe qui sur mon réseau local (Wi-Fi partagé,
+      # réseau d'entreprise) pourrait se connecter directement à PostgreSQL
+      # en contournant mon API et son RBAC.
+      - "127.0.0.1:5432:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
       - ./sql:/docker-entrypoint-initdb.d   # exécute les .sql au premier démarrage
@@ -32,7 +36,13 @@ services:
       VAULT_DEV_ROOT_TOKEN_ID: ${VAULT_DEV_ROOT_TOKEN}
       VAULT_DEV_LISTEN_ADDRESS: 0.0.0.0:8200
     ports:
-      - "8200:8200"
+      # Même raison que pour db ci-dessus : accessible uniquement en local,
+      # jamais depuis le réseau. VAULT_DEV_LISTEN_ADDRESS reste à 0.0.0.0
+      # (bind interne AU conteneur, nécessaire pour que Docker puisse
+      # relayer le port) -- ça n'expose rien en dehors du conteneur, c'est
+      # bien ce mapping "ports" qui contrôle l'exposition réelle sur ma
+      # machine.
+      - "127.0.0.1:8200:8200"
 
 volumes:
   pgdata:

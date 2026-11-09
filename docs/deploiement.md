@@ -79,6 +79,11 @@ Pour transformer ceci en un déploiement réel (pas seulement ma démo locale), 
   workers (limite que je documente déjà dans
   [limitations-methodologiques.md](limitations-methodologiques.md)) ;
 - des secrets gérés par la plateforme d'hébergement plutôt que mon fichier `.env` local ;
+- un vrai pare-feu réseau côté hébergeur (groupes de sécurité) : base de données dans un sous-réseau
+  privé non routable depuis l'extérieur, seule l'API exposée publiquement -- j'ai déjà restreint
+  l'exposition locale de PostgreSQL et Vault à `127.0.0.1` (voir
+  [securite.md](securite.md#exposition-réseau-de-postgresql-et-vault-retour-de-soutenance)), mais ça
+  ne couvre que ma machine de développement, pas un vrai périmètre réseau d'hébergement ;
 - un job de déploiement continu (`.github/workflows/cd.yml`) que je déclencherais après que la CI
   passe sur `main`, avec une étape de migration de schéma (`sql/*.sql`) explicite plutôt qu'appliquée
   à la main.

@@ -316,3 +316,15 @@ une validation réelle de mes défenses plutôt qu'une description de leur inten
 [securite.md#simulation-dattaque-pentest-interne](securite.md#simulation-dattaque-pentest-interne).
 
 Nombre de tests : 76 → 116 côté Python.
+
+## Exposition réseau de PostgreSQL et Vault corrigée (09/11/2026)
+
+En me demandant si des pare-feu avaient du sens pour ce projet, j'ai vérifié mon
+`docker-compose.yml` : `5432` (PostgreSQL) et `8200` (Vault) étaient publiés sans adresse d'écoute
+précisée, donc sur `0.0.0.0` par défaut -- accessibles depuis n'importe où sur mon réseau local, pas
+seulement depuis ma machine. Corrigé en restreignant les deux mappings à `127.0.0.1`. Un vrai
+pare-feu réseau (groupes de sécurité côté hébergeur) reste pertinent pour un vrai déploiement, mais
+n'a pas d'objet concret tant que je n'héberge pas ce projet (voir
+[deploiement.md](deploiement.md)) -- ce correctif-ci, en revanche, concernait ma machine de
+développement elle-même, indépendamment de toute question d'hébergement. Détail :
+[securite.md](securite.md#exposition-réseau-de-postgresql-et-vault-retour-de-soutenance).
