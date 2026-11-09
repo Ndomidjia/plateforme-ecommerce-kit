@@ -19,6 +19,7 @@ de mon projet (voir docs/tests.md) -- ils lisent les données existantes
 (modèle factice dans test_model_registry.py), sans jamais toucher aux
 tables analytics.* réelles (churn_scores, customer_360...).
 """
+import importlib.util
 import os
 import sys
 from pathlib import Path
@@ -29,8 +30,30 @@ from sqlalchemy import create_engine, text
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 API_DIR = REPO_ROOT / "api"
+ANALYTICS_DIR = REPO_ROOT / "analytics"
 
 load_dotenv(REPO_ROOT / ".env")
+
+
+def load_analytics_module(name: str):
+    """Charge un module analytics/<name>.py par chemin direct (importlib) et
+    l'enregistre dans sys.modules sous son nom, SANS jamais ajouter
+    analytics/ à sys.path (conflit de nom avec api/config.py, voir
+    ci-dessus) -- mes scripts analytics/*.py importent `config` seulement à
+    l'intérieur de main() (jamais en tête de module) précisément pour rester
+    chargeables ainsi, pour tester leurs fonctions pures sans dépendre d'une
+    base de données. L'enregistrement dans sys.modules permet aussi aux
+    imports entre scripts analytics/ entre eux (ex: analyse_seuil_bot.py
+    importe recommend_retailrocket.py) de se résoudre via le cache --
+    charger la dépendance en premier (voir tests/unit/) suffit alors."""
+    if name in sys.modules:
+        return sys.modules[name]
+    path = ANALYTICS_DIR / f"{name}.py"
+    spec = importlib.util.spec_from_file_location(name, path)
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[name] = module
+    spec.loader.exec_module(module)
+    return module
 
 # Seul répertoire que j'ajoute à sys.path pour toute la session de tests :
 # api/ et analytics/ définissent chacun leur propre config.py (contenu

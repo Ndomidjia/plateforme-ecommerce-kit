@@ -42,7 +42,6 @@ from sklearn.model_selection import StratifiedKFold, cross_val_predict, train_te
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import OneHotEncoder, StandardScaler
 from sqlalchemy import text
-from config import get_engine
 import model_registry
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
@@ -160,7 +159,17 @@ def build_labeled_dataset(engine, threshold_days: int) -> pd.DataFrame:
         LEFT JOIN second_order so ON so.customer_unique_id = fo.customer_unique_id
     """)
     df = pd.read_sql(query, engine, parse_dates=["first_purchase_at", "deuxieme_achat", "date_ref"])
+    return label_and_censor(df, threshold_days)
 
+
+def label_and_censor(df: pd.DataFrame, threshold_days: int) -> pd.DataFrame:
+    """Logique pure (pas de DB) : calcule le label proxy (à risque / retenu)
+    et l'indicateur de censure à partir des 3 colonnes de dates. Extrait de
+    build_labeled_dataset() pour rester testable avec un DataFrame fabriqué
+    à la main (voir tests/unit/test_customer_360_logic.py) -- la censure à
+    droite est la partie la plus facile à se tromper dans ce module (voir
+    l'incident déjà documenté dans docs/journal-de-bord.md)."""
+    df = df.copy()
     threshold = pd.Timedelta(days=threshold_days)
     repurchased_in_window = df["deuxieme_achat"].notna() & (df["deuxieme_achat"] <= df["first_purchase_at"] + threshold)
     enough_elapsed = (df["date_ref"] - df["first_purchase_at"]) >= threshold
@@ -252,6 +261,16 @@ def compute_recommended_category(engine) -> pd.DataFrame:
         GROUP BY category ORDER BY n DESC LIMIT 1
     """), engine)["category"].iloc[0]
 
+    return apply_category_fallback(merged, global_top)
+
+
+def apply_category_fallback(merged: pd.DataFrame, global_top: str) -> pd.DataFrame:
+    """Logique pure (pas de DB) : complète par la catégorie la plus vendue
+    globalement les clients sans règle d'association applicable. Extrait de
+    compute_recommended_category() pour rester testable (voir
+    tests/unit/test_customer_360_logic.py) -- c'est la limite déjà
+    documentée du module (90% des recommandations finissent génériques)."""
+    merged = merged.copy()
     fallback = merged["recommended_category"].isna() & merged["top_category"].notna() & (merged["top_category"] != global_top)
     merged.loc[fallback, "recommended_category"] = global_top
     return merged
@@ -269,6 +288,9 @@ def log_metrics_history(engine, metrics: dict):
 
 
 def main():
+    # Import local, voir commentaire équivalent dans rfm_olist.py.
+    from config import get_engine
+
     engine = get_engine()
 
     log.info("=== Étape 1 : seuil de non-réachat (dérivé des données) ===")

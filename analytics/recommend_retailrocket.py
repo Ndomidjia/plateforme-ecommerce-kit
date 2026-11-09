@@ -28,7 +28,6 @@ import numpy as np
 import pandas as pd
 from scipy import sparse
 from sqlalchemy import text
-from config import get_engine
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 log = logging.getLogger("analytics.recommend_retailrocket")
@@ -94,6 +93,9 @@ def compute_similarity(df: pd.DataFrame) -> pd.DataFrame:
     return top[["item_id", "recommended_item_id", "score"]].reset_index(drop=True)
 
 def main():
+    # Import local, voir commentaire équivalent dans rfm_olist.py.
+    from config import get_engine
+
     engine = get_engine()
     interactions = load_interactions(engine)
     recos = compute_similarity(interactions)

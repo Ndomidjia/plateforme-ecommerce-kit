@@ -33,7 +33,6 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-from config import get_engine
 from recommend_retailrocket import MIN_COOCCURRENCE, MIN_ITEMS_PER_VISITOR, TOP_N, compute_similarity
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
@@ -135,6 +134,9 @@ def sensitivity_table(df: pd.DataFrame) -> pd.DataFrame:
 
 
 def main():
+    # Import local, voir commentaire équivalent dans rfm_olist.py.
+    from config import get_engine
+
     engine = get_engine()
     df = load_raw_interactions(engine)
 

@@ -16,7 +16,6 @@ import pandas as pd
 from sqlalchemy import text
 from mlxtend.preprocessing import TransactionEncoder
 from mlxtend.frequent_patterns import apriori, association_rules
-from config import get_engine
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 log = logging.getLogger("analytics.market_basket_olist")
@@ -40,36 +39,48 @@ def build_transactions(engine) -> list[set]:
     log.info("%d commandes livrées, %d avec catégorie connue", n_before, n_after)
     return df.groupby("order_id")["category"].apply(set).tolist()
 
-def main():
-    engine = get_engine()
-    transactions = build_transactions(engine)
+MIN_SUPPORT = 0.00008  # seuil bas volontairement : max théorique de support pour une
+# paire de catégories = 723/96478 ≈ 0.0075 (voir docstring du module).
 
+def compute_rules(transactions: list[set], min_support: float = MIN_SUPPORT) -> pd.DataFrame:
+    """Logique pure (pas de DB) : encode les transactions, calcule les
+    itemsets fréquents puis les règles d'association. Extrait de main() pour
+    rester testable avec des transactions fabriquées à la main (voir
+    tests/unit/test_market_basket_logic.py).
+
+    Pas de filtre sur le lift ici : j'écris toutes les règles générées à
+    partir des itemsets de taille >= 2, lift compris. Une seule paire sur 18
+    dépasse lift=1 sur Olist (voir docstring du module) — c'est un résultat
+    en soi, pas une raison de tronquer la table. Le filtrage "règles fortes"
+    se fait en aval (API/dashboard) via la colonne lift."""
     te = TransactionEncoder()
     te_ary = te.fit(transactions).transform(transactions)
     basket_df = pd.DataFrame(te_ary, columns=te.columns_)
     log.info("%d transactions encodées, %d catégories distinctes", *basket_df.shape)
 
-    # seuil bas volontairement : max théorique de support pour une paire de
-    # catégories = 723/96478 ≈ 0.0075 (voir docstring). On affine après coup.
-    freq_itemsets = apriori(basket_df, min_support=0.00008, use_colnames=True)
+    freq_itemsets = apriori(basket_df, min_support=min_support, use_colnames=True)
     log.info("Itemsets fréquents trouvés : %d", len(freq_itemsets))
 
-    # Pas de filtre sur le lift ici : on écrit toutes les règles générées à
-    # partir des itemsets de taille >= 2, lift compris. Une seule paire sur
-    # 18 dépasse lift=1 sur Olist (voir docstring) — c'est un résultat en soi,
-    # pas une raison de tronquer la table. Le filtrage "règles fortes" se
-    # fait en aval (API/dashboard) via la colonne lift.
     rules = association_rules(freq_itemsets, metric="confidence", min_threshold=0.0)
     rules = rules.sort_values("lift", ascending=False)
     log.info("%d règles générées", len(rules))
 
-    out = pd.DataFrame({
+    return pd.DataFrame({
         "antecedents": rules["antecedents"].apply(lambda s: ", ".join(sorted(s))),
         "consequents": rules["consequents"].apply(lambda s: ", ".join(sorted(s))),
         "support": rules["support"],
         "confidence": rules["confidence"],
         "lift": rules["lift"],
     })
+
+
+def main():
+    # Import local, voir commentaire équivalent dans rfm_olist.py.
+    from config import get_engine
+
+    engine = get_engine()
+    transactions = build_transactions(engine)
+    out = compute_rules(transactions)
 
     with pd.option_context("display.width", 140):
         print(out.to_string(index=False))

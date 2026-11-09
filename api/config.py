@@ -24,4 +24,13 @@ def get_engine():
     # de l'API dans un état invalide -- chaque requête échoue en 500
     # (OperationalError "connection abort") jusqu'à un redémarrage manuel de
     # l'API. Incident réel rencontré et corrigé le 28/07 (voir journal de bord).
-    return create_engine(DATABASE_URL, pool_pre_ping=True)
+    #
+    # pool_size/max_overflow : les valeurs par défaut de SQLAlchemy (5 + 10,
+    # soit 15 connexions max) saturaient dès 20 utilisateurs simulés en
+    # charge (voir docs/performance.md) -- chaque requête en attente d'une
+    # connexion au-delà de ce plafond finissait en 500
+    # (sqlalchemy.exc.TimeoutError après 30s). PostgreSQL accepte par défaut
+    # jusqu'à 100 connexions simultanées (max_connections) : 40 me laisse de
+    # la marge pour d'autres clients (psql, scripts analytics/) sans
+    # épuiser le pool de PostgreSQL lui-même.
+    return create_engine(DATABASE_URL, pool_pre_ping=True, pool_size=20, max_overflow=20)

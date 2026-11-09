@@ -29,7 +29,6 @@ import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import pandas as pd
-from config import get_engine
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 log = logging.getLogger("analytics.analyse_k_anonymat")
@@ -119,6 +118,9 @@ def plot_k_distribution(k_by_set: dict[str, pd.Series]):
 
 
 def main():
+    # Import local, voir commentaire équivalent dans rfm_olist.py.
+    from config import get_engine
+
     engine = get_engine()
     df = load_profiles(engine)
 

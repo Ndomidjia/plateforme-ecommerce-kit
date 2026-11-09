@@ -16,7 +16,6 @@ from sklearn.model_selection import StratifiedKFold, cross_val_predict, train_te
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import OneHotEncoder, StandardScaler
 from sqlalchemy import text
-from config import get_engine
 import model_registry
 
 MODEL_NAME = "churn_scoring"
@@ -82,7 +81,20 @@ def log_metrics_history(engine, metrics: dict):
     rows.to_sql("model_metrics_history", engine, schema="analytics", if_exists="append", index=False)
     log.info("%d métriques journalisées dans analytics.model_metrics_history", len(rows))
 
+RISK_BINS = [-0.01, 0.3, 0.6, 1.01]
+RISK_LABELS = ["low", "medium", "high"]
+
+def proba_to_risk_level(churn_proba) -> pd.Categorical:
+    """Logique pure (pas de DB) : convertit une probabilité de churn en
+    niveau de risque à 3 paliers. Extrait de main() pour rester testable
+    directement, sans entraîner de modèle (voir
+    tests/unit/test_churn_model_logic.py)."""
+    return pd.cut(churn_proba, bins=RISK_BINS, labels=RISK_LABELS)
+
 def main():
+    # Import local, voir commentaire équivalent dans rfm_olist.py.
+    from config import get_engine
+
     engine = get_engine()
     df = load_data(engine)
     metrics_to_log = {"pct_positive_class": float(df[TARGET].mean())}
@@ -129,8 +141,7 @@ def main():
     churn_proba = proba_matrix[:, 1]
     metrics_to_log["oof_roc_auc"] = roc_auc_score(y, churn_proba)
 
-    risk_level = pd.cut(churn_proba, bins=[-0.01, 0.3, 0.6, 1.01],
-                        labels=["low", "medium", "high"])
+    risk_level = proba_to_risk_level(churn_proba)
 
     scores = pd.DataFrame({
         "customer_id": df["customer_id"],

@@ -15,3 +15,4 @@ pyjwt             # jetons JWT (API)
 pytest            # tests (voir tests/ et docs/tests.md)
 httpx             # requis par fastapi.testclient.TestClient
 hvac              # client HashiCorp Vault (voir api/secrets_provider.py, docs/securite.md)
+locust            # test de charge (voir scripts/locustfile.py, docs/performance.md)

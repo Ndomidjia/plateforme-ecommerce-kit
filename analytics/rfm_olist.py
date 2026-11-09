@@ -11,7 +11,6 @@ client physique.
 import logging
 import pandas as pd
 from sqlalchemy import text
-from config import get_engine
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 log = logging.getLogger("analytics.rfm_olist")
@@ -66,6 +65,12 @@ def score_rfm(df: pd.DataFrame) -> pd.DataFrame:
     return df
 
 def main():
+    # Import local (pas en tête de module) : les fonctions pures de ce
+    # fichier (score_rfm) doivent rester testables sans charger config.py,
+    # qui entrerait en conflit de nom avec api/config.py si les deux étaient
+    # importés dans le même process de test (voir tests/conftest.py).
+    from config import get_engine
+
     engine = get_engine()
     df = extract_raw_rfm(engine)
     log.info("%d clients avec au moins une commande livrée", len(df))

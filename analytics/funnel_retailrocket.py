@@ -11,7 +11,6 @@ synthèse sur toute la période.
 import logging
 import pandas as pd
 from sqlalchemy import text
-from config import get_engine
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 log = logging.getLogger("analytics.funnel_retailrocket")
@@ -56,6 +55,9 @@ def build_global(engine) -> pd.DataFrame:
     return add_rates(df)
 
 def main():
+    # Import local, voir commentaire équivalent dans rfm_olist.py.
+    from config import get_engine
+
     engine = get_engine()
     weekly = build_weekly(engine)
     glob = build_global(engine)

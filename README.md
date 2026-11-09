@@ -123,11 +123,14 @@ http://localhost:5173 — je me connecte avec le compte admin créé à l'étape
 ### 7. Mes tests
 
 ```bash
-pytest   # depuis la racine, base de données démarrée (étape 1) -- voir docs/tests.md
+pytest                              # depuis la racine, base de données démarrée (étape 1)
+cd dashboard && npm test            # tests du dashboard React (Vitest)
 ```
-J'ai écrit 27 tests (RBAC, qualité de données, versioning de modèle). Je les lance automatiquement
-à chaque push (`.github/workflows/ci.yml`) — voir [docs/tests.md](docs/tests.md) et
-[docs/deploiement.md](docs/deploiement.md).
+J'ai écrit 76 tests Python (RBAC, qualité de données, versioning de modèle, logique interne des
+scripts `analytics/*.py`) et 45 tests dashboard. Les tests Python se lancent automatiquement à
+chaque push (`.github/workflows/ci.yml`) — voir [docs/tests.md](docs/tests.md) et
+[docs/deploiement.md](docs/deploiement.md). J'ai aussi un test de charge manuel (Locust) — voir
+[docs/performance.md](docs/performance.md).
 
 ## Mes rôles
 
@@ -149,6 +152,8 @@ J'ai écrit 27 tests (RBAC, qualité de données, versioning de modèle). Je les
   légale, analyse de k-anonymat, audit)
 - [docs/tests.md](docs/tests.md) — ce que je teste automatiquement (et ce que je ne teste pas
   encore)
+- [docs/performance.md](docs/performance.md) — mon test de charge (Locust) et le vrai problème de
+  pool de connexions qu'il a révélé
 - [docs/deploiement.md](docs/deploiement.md) — ma CI en place, ce qu'un vrai déploiement continu me
   demanderait
 - [docs/journal-de-bord.md](docs/journal-de-bord.md) — chronologie de mes décisions, incidents que

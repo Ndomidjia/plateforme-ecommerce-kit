@@ -1,20 +1,18 @@
 """analytics/model_registry.py : mon garde-fou de promotion de modèle
 (je réponds ici à la question de soutenance "un nouveau modèle moins bon
 écrase-t-il l'ancien sans rollback possible ?"). Je le charge par chemin
-direct (importlib) plutôt que via sys.path : voir ma note dans conftest.py
-sur le conflit de nom entre api/config.py et analytics/config.py.
+direct (importlib, voir conftest.py:load_analytics_module) plutôt que via
+sys.path : voir ma note dans conftest.py sur le conflit de nom entre
+api/config.py et analytics/config.py.
 """
-import importlib.util
 import uuid
-from pathlib import Path
 
 import pytest
 from sqlalchemy import text
 
-_MODULE_PATH = Path(__file__).resolve().parent.parent / "analytics" / "model_registry.py"
-_spec = importlib.util.spec_from_file_location("model_registry", _MODULE_PATH)
-model_registry = importlib.util.module_from_spec(_spec)
-_spec.loader.exec_module(model_registry)
+from conftest import load_analytics_module
+
+model_registry = load_analytics_module("model_registry")
 
 
 @pytest.fixture

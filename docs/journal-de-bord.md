@@ -262,8 +262,40 @@ Nombre de tests : 24 → 27 (3 nouveaux tests de sécurité dans `tests/test_aut
 ## Ce qui me reste à faire (non commencé)
 
 CD (déploiement continu) — je n'ai pas de cible d'hébergement pour ce projet, voir
-[deploiement.md](deploiement.md). Étendre ma couverture de tests aux scripts `analytics/*.py`
-eux-mêmes (seul leur résultat en base est testé actuellement chez moi) et à mon dashboard React
-(aucun test). Mon monitoring de drift dispose d'une fondation (`analytics.model_metrics_history`,
-`analytics.model_registry`) mais je n'ai encore aucun tableau de bord ni alerte automatique qui
-l'exploite.
+[deploiement.md](deploiement.md). Mon monitoring de drift dispose d'une fondation
+(`analytics.model_metrics_history`, `analytics.model_registry`) mais je n'ai encore aucun tableau de
+bord ni alerte automatique qui l'exploite.
+
+## Tests : unitaires analytics, dashboard, performance (09/11/2026)
+
+Trois manques que j'avais moi-même listés ci-dessus (logique `analytics/*.py` non testée
+isolément, dashboard React sans aucun test, aucun test de charge) — j'ai décidé de ne pas héberger
+ce projet (donc pas de CD), mais j'ai comblé les trois manques de tests :
+
+- **49 nouveaux tests unitaires purs sur `analytics/*.py`** (`tests/unit/`) : pour pouvoir charger
+  chaque script sans base de données, j'ai déplacé `from config import get_engine` de l'en-tête de
+  chaque script vers l'intérieur de `main()`, et j'ai extrait 4 fonctions pures qui étaient
+  mélangées avec du code d'accès base : `compute_rules` (`market_basket_olist.py`),
+  `proba_to_risk_level` (`churn_model.py`), `label_and_censor` et `apply_category_fallback`
+  (`customer_360_olist.py`). Changement mécanique, comportement inchangé — revérifié en relançant
+  chaque script en conditions réelles après coup. Nouveau helper `load_analytics_module()` dans
+  `tests/conftest.py` : charge un module par chemin direct (`importlib`) et l'enregistre dans
+  `sys.modules` sous son propre nom, sans jamais toucher `sys.path` (`api/config.py` et
+  `analytics/config.py` portent le même nom de module mais un contenu différent — les mélanger
+  aurait fait résoudre le mauvais `config` selon l'ordre d'exécution des tests).
+- **45 nouveaux tests dashboard** (Vitest + React Testing Library) : `utils/csv.js`, `api.js`,
+  `AuthContext`, `useApiQuery`, et les composants `StatTile`, `AlertBanner` (les 4 règles de seuils
+  métier une par une), `AnomalyBanner`, `ExportCsvButton`, `ProtectedRoute`.
+- **Test de charge (Locust)** : a trouvé un vrai bug, pas juste produit des chiffres. À 20
+  utilisateurs simulés, `api/config.py` utilisait les réglages de pool SQLAlchemy par défaut (15
+  connexions au total) → 8,2% d'échecs et jusqu'à 34 secondes de latence
+  (`sqlalchemy.exc.TimeoutError: QueuePool limit ... reached`). Corrigé avec `pool_size=20,
+  max_overflow=20`. Après correctif : 0% d'échecs, latence max 5,2 secondes. Détail complet :
+  [performance.md](performance.md).
+
+Nombre de tests : 27 → 76 côté Python (+ 45 côté dashboard, nouveau).
+
+Détour non prévu pendant cette session : mon disque C: s'est retrouvé à 0 octet libre (conséquence
+des crash-loops Vault d'une session précédente), ce qui a bloqué Docker/Postgres pendant un moment —
+résolu en vidant la corbeille Windows et en nettoyant le cache Docker (`docker system prune -af`),
+sans toucher à aucune donnée de travail.
