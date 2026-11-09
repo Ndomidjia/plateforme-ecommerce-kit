@@ -108,7 +108,16 @@ Mapping technique correspondant : [`.github/CODEOWNERS`](../.github/CODEOWNERS).
 
 ## Matrice RACI — qui décide, qui est consulté, qui est informé
 
-R = Responsable (exécute) · A = Approbateur (valide, un seul par ligne) · C = Consulté · I = Informé
+RACI est un découpage classique de gestion de projet qui dit, pour chaque décision, qui fait quoi.
+Chaque lettre du tableau ci-dessous correspond à un rôle vis-à-vis de cette décision précise (une
+même personne/poste peut avoir des lettres différentes selon la ligne) :
+
+| Code | Signification | Ce que ça veut dire concrètement |
+|:---:|---|---|
+| **R** | Responsable | Exécute la tâche — celui qui met réellement la main à la pâte |
+| **A** | Approbateur | Valide ou refuse la décision finale — un seul A par ligne, c'est lui qui rend des comptes si ça tourne mal |
+| **C** | Consulté | Sollicité pour avis **avant** que la décision soit prise (dialogue à double sens) |
+| **I** | Informé | Tenu au courant **après** la décision, sans être consulté avant (information à sens unique) |
 
 | Décision / livrable | Comité de pilotage | Chef de projet | Data Engineer | Data Scientist | Backend Dev | Frontend Dev | QA/DevOps | Réf. RGPD |
 |---|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|
