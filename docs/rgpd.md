@@ -54,17 +54,46 @@ Le RGPD (considérant 26) et la doctrine de la CNIL distinguent :
 
 Ce que je fais avec `DELETE /rgpd/churn/{customer_id}` est, honnêtement, plus proche de la
 **seconde** catégorie : je conserve `customer_id` (clé technique nécessaire à l'intégrité
-référentielle), et je n'ai mené aucune analyse de k-anonymat sur les métriques comportementales
-restantes (`lifetime_value`, `login_frequency`, etc.) pour démontrer qu'elles ne permettent pas,
-combinées, de ré-identifier un individu dans une base de 50 000 profils. Je ne fonde donc pas ma
-base légale sur l'affirmation "ce n'est plus une donnée personnelle", mais bien sur l'exception
-explicite de l'article 17(3)(d) + les garanties de l'article 89(1) — un traitement qui **reste**
-dans le périmètre du RGPD mais que le RGPD autorise lui-même à poursuivre, aux conditions des
-garanties que j'apporte ici. C'est une limite que j'assume, dans le même esprit que les autres
-limites que je documente dans
-[limitations-methodologiques.md](limitations-methodologiques.md) : une vraie anonymisation
-(garantie, pas seulement supposée) demanderait une analyse de k-anonymat/l-diversité sur les
-attributs comportementaux restants, que je n'ai pas réalisée à ce stade.
+référentielle), et une combinaison d'attributs comportementaux restants pourrait, en théorie,
+permettre un ré-appariement. Je ne fonde donc pas ma base légale sur l'affirmation "ce n'est plus
+une donnée personnelle", mais bien sur l'exception explicite de l'article 17(3)(d) + les garanties
+de l'article 89(1) — un traitement qui **reste** dans le périmètre du RGPD mais que le RGPD
+autorise lui-même à poursuivre, aux conditions des garanties que j'apporte ici.
+
+### Analyse de k-anonymat sur les attributs restants (retour de soutenance)
+
+Je n'avais mené, dans une version précédente, aucune analyse de k-anonymat pour vérifier si les
+attributs comportementaux qui restent après anonymisation (`lifetime_value`, `login_frequency`,
+`total_purchases`, etc.) permettraient malgré tout, combinés, de ré-identifier un client. Je l'ai
+fait avec `analytics/analyse_k_anonymat.py` : pour chaque client, je calcule k, la taille du groupe
+de clients qui partagent exactement la même combinaison généralisée (par quartiles) d'attributs —
+k=1 signifie que la combinaison identifie un client unique.
+
+![Dégradation du k-anonymat selon le nombre d'attributs combinés](assets/k_anonymat_distribution.png)
+
+Résultat honnête, dans les deux sens :
+
+| Quasi-identifiants combinés | k minimum | % clients avec k≤1 (uniques) | % clients avec k≤5 | % clients avec k≤10 |
+|---|---:|---:|---:|---:|
+| 2 (trimestre d'inscription + ancienneté) | 3 000 | 0% | 0% | 0% |
+| 4 (+ nb d'achats + diversité de paiement) | 20 | 0% | 0% | 0% |
+| 6 (+ valeur vie client + fréquence de connexion) | **1** | **0,93%** | 7,36% | 15,35% |
+
+Avec seulement 2 à 4 attributs comportementaux, l'anonymisation est solide (groupes de plusieurs
+centaines à plusieurs milliers de clients). Mais avec 6 attributs combinés — un adversaire qui
+connaîtrait, par exemple, la valeur vie client et la fréquence de connexion approximatives d'un
+client via une autre source — **0,93% des clients deviennent uniquement identifiables** (k=1) par
+cette seule combinaison, et 15,35% tombent sous le seuil usuel de k=10. C'est l'effet classique de
+dégradation du k-anonymat : chaque attribut supplémentaire, même anodin pris isolément, réduit
+fortement la taille des groupes.
+
+**Conclusion que j'assume** : mon anonymisation RGPD protège bien contre une ré-identification
+par un petit nombre d'attributs, mais pas contre un adversaire qui combinerait plusieurs attributs
+comportementaux précis. Ce n'est donc pas une anonymisation garantie au sens strict (voir
+distinction ci-dessus), ce qui confirme et chiffre ce que j'annonçais déjà : je m'appuie sur
+l'exception légale de l'article 17(3)(d), pas sur l'affirmation que la donnée serait devenue
+anonyme. Tableau complet reproductible : `docs/assets/k_anonymat_resultats.csv` (généré par
+`analytics/analyse_k_anonymat.py`, à relancer si le dataset change).
 
 ## Traçabilité (principe de responsabilité / accountability)
 
@@ -78,9 +107,13 @@ J'ai réservé les endpoints RGPD au rôle `admin` (contrairement aux endpoints 
 rends aussi accessibles à `analyst`) : ce sont les seuls, dans ma plateforme, à manipuler des
 données personnelles brutes non agrégées.
 
-## Sécurité des secrets
+## Sécurité des secrets et de l'authentification
+
+Voir [securite.md](securite.md) pour le détail complet (authentification, révocation de jeton,
+anti-bruteforce, gestion des secrets via Vault). En bref :
 
 - Mots de passe API que je hash avec `bcrypt` (jamais stockés en clair)
-- Clé secrète JWT que je génère aléatoirement (256 bits), stockée en variable d'environnement
-  (`.env`, jamais commitée)
-- Mot de passe PostgreSQL que je génère aléatoirement, jamais la valeur par défaut du template
+- Clé secrète JWT et mot de passe PostgreSQL gérés via HashiCorp Vault quand il est disponible,
+  sinon via `.env` (jamais commité) — voir [securite.md](securite.md#gestion-des-secrets-vault)
+- Jeton JWT révoqué immédiatement si le compte est supprimé (pas seulement à l'expiration)
+- Protection anti-bruteforce sur `/auth/login`

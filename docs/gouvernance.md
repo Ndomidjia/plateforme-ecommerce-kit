@@ -85,9 +85,9 @@ module, et comment une décision ou un changement remonte jusqu'à validation. I
 
 ### Référent RGPD & Sécurité (rôle transverse)
 
-- Garantit la conformité RGPD (droit d'accès, droit à l'oubli et sa base légale — voir
-  [rgpd.md](rgpd.md)) et la gestion des secrets (mots de passe hashés, clé JWT, `.env` jamais
-  commité).
+- Garantit la conformité RGPD (droit d'accès, droit à l'oubli, base légale, analyse de
+  k-anonymat — voir [rgpd.md](rgpd.md)) et la sécurité applicative (authentification, révocation de
+  jeton, anti-bruteforce, gestion des secrets via Vault — voir [securite.md](securite.md)).
 - Ce rôle n'est pas rattaché à un dossier du dépôt : il s'applique transversalement à `api/`
   (endpoints RGPD), `analytics/` (anonymisation) et à la configuration (`.gitignore`, `.env.example`).
 

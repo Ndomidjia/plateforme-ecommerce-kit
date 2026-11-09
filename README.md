@@ -125,7 +125,7 @@ http://localhost:5173 — je me connecte avec le compte admin créé à l'étape
 ```bash
 pytest   # depuis la racine, base de données démarrée (étape 1) -- voir docs/tests.md
 ```
-J'ai écrit 24 tests (RBAC, qualité de données, versioning de modèle). Je les lance automatiquement
+J'ai écrit 27 tests (RBAC, qualité de données, versioning de modèle). Je les lance automatiquement
 à chaque push (`.github/workflows/ci.yml`) — voir [docs/tests.md](docs/tests.md) et
 [docs/deploiement.md](docs/deploiement.md).
 
@@ -143,8 +143,10 @@ J'ai écrit 24 tests (RBAC, qualité de données, versioning de modèle). Je les
 - [docs/architecture.md](docs/architecture.md) — mes décisions d'architecture et pourquoi
 - [docs/limitations-methodologiques.md](docs/limitations-methodologiques.md) — les limites que je
   connais pour chaque module (à citer moi-même en soutenance plutôt qu'à laisser découvrir)
+- [docs/securite.md](docs/securite.md) — authentification, révocation de jeton, anti-bruteforce,
+  gestion des secrets (Vault)
 - [docs/rgpd.md](docs/rgpd.md) — mon approche RGPD (droit d'accès, droit à l'oubli et sa base
-  légale, audit)
+  légale, analyse de k-anonymat, audit)
 - [docs/tests.md](docs/tests.md) — ce que je teste automatiquement (et ce que je ne teste pas
   encore)
 - [docs/deploiement.md](docs/deploiement.md) — ma CI en place, ce qu'un vrai déploiement continu me

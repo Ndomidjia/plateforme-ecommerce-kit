@@ -15,5 +15,24 @@ services:
       - pgdata:/var/lib/postgresql/data
       - ./sql:/docker-entrypoint-initdb.d   # exécute les .sql au premier démarrage
 
+  # Mon gestionnaire de secrets (voir docs/securite.md) : remplace le stockage
+  # en clair dans .env pour le mot de passe PostgreSQL et la clé JWT. Mode
+  # "dev" UNIQUEMENT : auto-unseal, un seul nœud, token root fixe -- ça n'est
+  # pas un déploiement Vault de production (qui demanderait un stockage
+  # persistant, un vrai init/unseal, et une politique d'accès par rôle), mais
+  # ça fait tourner un vrai serveur Vault en local, interrogé par l'API via
+  # son API HTTP (voir api/secrets_provider.py), pas un simulacre.
+  vault:
+    image: hashicorp/vault:1.17
+    container_name: ecommerce_vault
+    restart: unless-stopped
+    cap_add:
+      - IPC_LOCK
+    environment:
+      VAULT_DEV_ROOT_TOKEN_ID: ${VAULT_DEV_ROOT_TOKEN}
+      VAULT_DEV_LISTEN_ADDRESS: 0.0.0.0:8200
+    ports:
+      - "8200:8200"
+
 volumes:
   pgdata:

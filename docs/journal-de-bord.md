@@ -233,6 +233,32 @@ Mon jury m'a fait cinq remarques, que j'ai traitées une par une plutôt que de 
   n'existe pas — ma v1 le laissait croire à tort, je corrige ça dans
   [limitations-methodologiques.md](limitations-methodologiques.md).
 
+## Sécurité : 4 lacunes identifiées, traitées (09/11/2026)
+
+En répondant à une question sur l'état de la sécurité, j'avais moi-même listé 4 lacunes connues.
+Je les ai corrigées plutôt que de les laisser comme limites déclarées :
+
+- **Révocation de jeton** : `api/deps.py` revérifie maintenant l'existence du compte en base à
+  chaque requête au lieu de faire confiance au jeton jusqu'à son expiration. Testé
+  (`test_deleted_account_token_is_revoked_immediately`).
+- **Anti-bruteforce sur `/auth/login`** : nouveau `api/rate_limit.py` (verrouillage par compte et
+  par IP après trop d'échecs, remise à zéro après un succès). Testé.
+- **Gestion des secrets via Vault** : `api/secrets_provider.py` (+ jumeau côté `analytics/`) lit
+  `DATABASE_URL`/`JWT_SECRET_KEY` depuis HashiCorp Vault quand disponible, avec repli sur `.env`.
+  **Incident non résolu localement** : le conteneur Vault plante au démarrage sur ma machine
+  (bug runtime Go lié à `mlock`/`IPC_LOCK` sous Docker Desktop/WSL2, confirmé indépendant de ma
+  configuration après plusieurs tentatives ciblées) ; a aussi fait planter le démon Docker Desktop
+  deux fois pendant le diagnostic (système de fichiers interne corrompu, résolu par redémarrage
+  complet). J'ai déplacé la validation de bout en bout vers la CI (vrai Linux), où Vault démarre
+  normalement — voir [securite.md](securite.md) pour le détail complet du diagnostic.
+- **Analyse de k-anonymat** : nouveau `analytics/analyse_k_anonymat.py`. Résultat honnête : stable
+  avec 2 à 4 attributs comportementaux (k minimum ≥ 20), mais 0,93% des clients deviennent
+  uniquement identifiables (k=1) en combinant 6 attributs — je documente ça comme une vraie limite
+  de mon anonymisation plutôt qu'une anonymisation garantie, voir
+  [rgpd.md](rgpd.md#analyse-de-k-anonymat-sur-les-attributs-restants-retour-de-soutenance).
+
+Nombre de tests : 24 → 27 (3 nouveaux tests de sécurité dans `tests/test_auth_rbac.py`).
+
 ## Ce qui me reste à faire (non commencé)
 
 CD (déploiement continu) — je n'ai pas de cible d'hébergement pour ce projet, voir

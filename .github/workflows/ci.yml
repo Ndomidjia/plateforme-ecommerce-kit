@@ -36,11 +36,34 @@ jobs:
           --health-timeout 5s
           --health-retries 10
 
+      # Mon gestionnaire de secrets (voir docs/securite.md et
+      # api/secrets_provider.py). Je le teste ici sur un vrai Linux (runner
+      # GitHub-hosted) : en local, sur ma machine Windows, le binaire Vault
+      # crashe au démarrage (bug Go runtime documenté lié à mlock/IPC_LOCK
+      # sous Docker Desktop/WSL2, indépendant de ma configuration -- voir
+      # docs/securite.md) ; la CI est donc ma seule preuve que l'intégration
+      # fonctionne réellement de bout en bout, pas seulement son repli .env.
+      vault:
+        image: hashicorp/vault:1.17
+        env:
+          VAULT_DEV_ROOT_TOKEN_ID: ci-dev-root-token
+          VAULT_DEV_LISTEN_ADDRESS: 0.0.0.0:8200
+        ports:
+          - 8200:8200
+        options: >-
+          --cap-add=IPC_LOCK
+          --health-cmd "wget -qO- http://127.0.0.1:8200/v1/sys/health || exit 1"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
     env:
       DATABASE_URL: postgresql+psycopg2://ecommerce_admin:ci_password@localhost:5432/ecommerce_platform
       JWT_SECRET_KEY: ci-only-secret-not-used-in-production
       JWT_ALGORITHM: HS256
       ACCESS_TOKEN_EXPIRE_MINUTES: "60"
+      VAULT_ADDR: http://127.0.0.1:8200
+      VAULT_TOKEN: ci-dev-root-token
 
     steps:
       - uses: actions/checkout@v4
@@ -52,6 +75,9 @@ jobs:
 
       - name: Installer les dépendances
         run: pip install -r requirements.txt
+
+      - name: Pousser mes secrets dans Vault
+        run: python scripts/vault_init.py
 
       - name: Appliquer le schéma SQL (sans les données -- voir docs/tests.md)
         run: |
@@ -66,6 +92,22 @@ jobs:
       - name: pytest
         working-directory: .
         run: pytest -v
+
+      - name: Vérifier que les secrets viennent bien de Vault, pas d'un repli .env accidentel
+        working-directory: api
+        # Je remplace volontairement DATABASE_URL/JWT_SECRET_KEY par des
+        # valeurs bidon pour ce seul process (via `env:`) : si config.py
+        # résout quand même les vraies valeurs (celles poussées dans Vault),
+        # c'est la preuve qu'elles viennent de Vault, pas d'un repli .env
+        # qui coïnciderait par hasard.
+        env:
+          DATABASE_URL: "postgresql+psycopg2://wrong:wrong@nowhere/wrong"
+          JWT_SECRET_KEY: "wrong-secret-should-not-be-used"
+        run: >
+          python -c "import config;
+          assert config.DATABASE_URL == 'postgresql+psycopg2://ecommerce_admin:ci_password@localhost:5432/ecommerce_platform', 'lu depuis .env, pas Vault';
+          assert config.JWT_SECRET_KEY == 'ci-only-secret-not-used-in-production', 'lu depuis .env, pas Vault';
+          print('Secrets confirmes lus depuis Vault (pas depuis les variables bidon ni un repli .env).')"
 
       - name: Créer un compte admin de test et vérifier que l'API démarre
         working-directory: api

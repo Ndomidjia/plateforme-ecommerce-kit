@@ -35,7 +35,10 @@ pytest                            # depuis la racine du dépôt
 - **`tests/test_auth_rbac.py`** — authentification JWT (succès, mot de passe/utilisateur invalide,
   jeton invalide/absent) et cloisonnement des rôles admin/analyst sur les endpoints `/admin` et
   `/rgpd` (un analyst qui y accéderait serait une faille de sécurité directe sur des données
-  personnelles ou des actions d'administration).
+  personnelles ou des actions d'administration). Couvre aussi, depuis le retour de soutenance sur
+  la sécurité (voir [securite.md](securite.md)) : la révocation immédiate du jeton d'un compte
+  supprimé, et le verrouillage anti-bruteforce de `/auth/login` (verrouillage après trop d'échecs,
+  remise à zéro après un succès).
 - **`tests/test_data_quality.py`** — volumes minimums par table source, absence de commandes
   orphelines (repris de `sql/99_controles.sql`), plages de valeurs valides pour les scores que je
   produis (`churn_proba`, `sentiment_proba`, `proxy_risk_proba` ∈ [0,1]), cohérence des bornes
@@ -46,7 +49,7 @@ pytest                            # depuis la racine du dépôt
   variation dans la tolérance (bruit naturel d'un ré-entraînement) est acceptée, et que l'état
   "rollback disponible" est correctement enregistré après une deuxième promotion.
 
-J'ai écrit 24 tests, quelques secondes d'exécution.
+J'ai écrit 27 tests, quelques secondes d'exécution.
 
 ## Choix que j'assume (proportionnés à l'échelle de mon projet)
 

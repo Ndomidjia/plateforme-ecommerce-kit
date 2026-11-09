@@ -1,0 +1,4 @@
+quasi_identifiants,nb_attributs,k_min,k_median,pct_k_le_1,pct_k_le_5,pct_k_le_10
+2 attributs (signup_quarter + membership_years),2,3000,3124.0,0.0,0.0,0.0
+4 attributs (+ total_purchases + payment_method_diversity),4,20,313.0,0.0,0.0,0.0
+6 attributs (+ lifetime_value + login_frequency),6,1,35.0,0.93,7.36,15.35

@@ -1,10 +1,11 @@
 """Authentification (login) et gestion des comptes API (admin uniquement)."""
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.security import OAuth2PasswordRequestForm
 from pydantic import BaseModel
 from sqlalchemy import text
 from sqlalchemy.engine import Connection
 
+import rate_limit
 from database import get_db
 from deps import require_role
 from security import create_access_token, hash_password, verify_password
@@ -30,19 +31,31 @@ class UserWithMeta(BaseModel):
     created_at: str
 
 @router.post("/login", response_model=Token)
-def login(form: OAuth2PasswordRequestForm = Depends(), db: Connection = Depends(get_db)):
+def login(request: Request, form: OAuth2PasswordRequestForm = Depends(), db: Connection = Depends(get_db)):
+    client_ip = request.client.host if request.client else "unknown"
+
+    locked_for = rate_limit.seconds_until_unlocked(form.username, client_ip)
+    if locked_for is not None:
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail=f"Trop de tentatives échouées. Réessayez dans {int(locked_for) + 1} secondes.",
+            headers={"Retry-After": str(int(locked_for) + 1)},
+        )
+
     row = db.execute(
         text("SELECT username, hashed_password, role FROM app.users WHERE username = :username"),
         {"username": form.username},
     ).mappings().first()
 
     if row is None or not verify_password(form.password, row["hashed_password"]):
+        rate_limit.record_failed_attempt(form.username, client_ip)
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Identifiants invalides",
             headers={"WWW-Authenticate": "Bearer"},
         )
 
+    rate_limit.reset(form.username, client_ip)
     token = create_access_token(username=row["username"], role=row["role"])
     return Token(access_token=token)
 
