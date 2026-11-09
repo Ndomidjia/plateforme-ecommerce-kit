@@ -138,6 +138,8 @@ J'ai écrit 24 tests (RBAC, qualité de données, versioning de modèle). Je les
 
 ## Ma documentation
 
+- [docs/gouvernance.md](docs/gouvernance.md) — organisation du projet : rôles, responsabilités par
+  dossier, matrice RACI, workflow de contribution
 - [docs/architecture.md](docs/architecture.md) — mes décisions d'architecture et pourquoi
 - [docs/limitations-methodologiques.md](docs/limitations-methodologiques.md) — les limites que je
   connais pour chaque module (à citer moi-même en soutenance plutôt qu'à laisser découvrir)

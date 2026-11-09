@@ -1,0 +1,30 @@
+# Mapping technique de la gouvernance du projet (voir docs/gouvernance.md pour le détail des
+# rôles, la matrice RACI et le workflow de contribution). Un seul titulaire aujourd'hui (@Ndomidjia,
+# qui cumule tous les rôles) -- le découpage par dossier reste celui qu'on utiliserait pour
+# distribuer les rôles à une équipe, sans réorganisation.
+
+# Data Engineer -- sql/, etl/
+/sql/      @Ndomidjia
+/etl/      @Ndomidjia
+
+# Data Scientist / ML Engineer -- analytics/
+/analytics/  @Ndomidjia
+
+# Backend Developer -- api/
+/api/      @Ndomidjia
+
+# Frontend Developer -- dashboard/
+/dashboard/  @Ndomidjia
+
+# QA / DevOps -- tests/, CI, conteneurisation
+/tests/                  @Ndomidjia
+/.github/workflows/      @Ndomidjia
+/docker-compose.yml      @Ndomidjia
+
+# Référent RGPD & Sécurité -- transverse (endpoints RGPD de l'API + config des secrets)
+/api/routers/rgpd.py  @Ndomidjia
+/.env.example          @Ndomidjia
+
+# Gouvernance et documentation -- Chef de projet
+/docs/     @Ndomidjia
+/README.md  @Ndomidjia
