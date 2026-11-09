@@ -126,9 +126,10 @@ http://localhost:5173 — je me connecte avec le compte admin créé à l'étape
 pytest                              # depuis la racine, base de données démarrée (étape 1)
 cd dashboard && npm test            # tests du dashboard React (Vitest)
 ```
-J'ai écrit 76 tests Python (RBAC, qualité de données, versioning de modèle, logique interne des
-scripts `analytics/*.py`) et 45 tests dashboard. Les tests Python se lancent automatiquement à
-chaque push (`.github/workflows/ci.yml`) — voir [docs/tests.md](docs/tests.md) et
+J'ai écrit 116 tests Python (RBAC, qualité de données, versioning de modèle, simulation d'attaque —
+bruteforce, JWT, injection SQL, élévation de privilèges, voir [docs/securite.md](docs/securite.md) —
+et logique interne des scripts `analytics/*.py`) et 45 tests dashboard. Les tests Python se lancent
+automatiquement à chaque push (`.github/workflows/ci.yml`) — voir [docs/tests.md](docs/tests.md) et
 [docs/deploiement.md](docs/deploiement.md). J'ai aussi un test de charge manuel (Locust) — voir
 [docs/performance.md](docs/performance.md).
 

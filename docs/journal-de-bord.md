@@ -299,3 +299,20 @@ Détour non prévu pendant cette session : mon disque C: s'est retrouvé à 0 oc
 des crash-loops Vault d'une session précédente), ce qui a bloqué Docker/Postgres pendant un moment —
 résolu en vidant la corbeille Windows et en nettoyant le cache Docker (`docker system prune -af`),
 sans toucher à aucune donnée de travail.
+
+## Simulation d'attaque sur mon API (09/11/2026)
+
+Documenter mes défenses de sécurité (voir [securite.md](securite.md)) ne prouve pas qu'elles
+tiennent sous tentative réelle d'exploitation — je me suis mis à la place d'un attaquant et j'ai
+écrit `tests/test_security_attacks.py` (40 tests) sur quatre familles de vecteurs : bruteforce /
+anti-bruteforce (énumération de comptes, credential stuffing contre mon seuil par IP), falsification
+de JWT (signature altérée, mauvais secret, attaque `alg: none`, claim `role` remonté à `admin`,
+jeton expiré), injection SQL (payloads classiques sur les identifiants de connexion et sur un
+paramètre de chemin/requête de `/analytics/rfm`), et élévation de privilèges (balayage systématique
+de tous mes endpoints admin avec un jeton `analyst` et sans jeton).
+
+Résultat honnête : les 40 tentatives échouent proprement, rien à exploiter. Je documente ça comme
+une validation réelle de mes défenses plutôt qu'une description de leur intention — voir
+[securite.md#simulation-dattaque-pentest-interne](securite.md#simulation-dattaque-pentest-interne).
+
+Nombre de tests : 76 → 116 côté Python.

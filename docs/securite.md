@@ -88,6 +88,40 @@ planter deux fois le démon Docker Desktop lui-même (système de fichiers inter
 `read-only file system`), résolu par un redémarrage complet de Docker Desktop + WSL2 à chaque fois
 -- incident purement local, sans lien avec le code du projet.
 
+## Simulation d'attaque (pentest interne)
+
+Documenter des défenses ne prouve pas qu'elles tiennent sous tentative réelle d'exploitation —
+alors je me suis mis à la place d'un attaquant et j'ai écrit une suite dédiée,
+`tests/test_security_attacks.py` (40 tests, intégrée à ma suite pytest et donc à ma CI), qui
+attaque mon API sur les quatre familles de vecteurs qu'un pentest manuel ciblerait en priorité sur
+une API à authentification par jeton :
+
+- **Bruteforce / anti-bruteforce** : en complément des tests de verrouillage par compte déjà
+  présents (`test_auth_rbac.py`), je vérifie qu'un message d'erreur identique empêche l'énumération
+  de comptes existants (même code, même `detail` pour "compte inconnu" et "mauvais mot de passe"),
+  et qu'un credential stuffing qui vise 20 comptes différents (une tentative chacun, sous mon seuil
+  par compte de 5) se fait bloquer par mon seuil par IP.
+- **Falsification de JWT** : signature altérée, jeton signé avec un mauvais secret, attaque
+  classique `alg: none` (jeton sans signature), claim `role` remonté à `admin` puis re-signé avec un
+  secret deviné (donc invalide), jeton expiré signé avec le vrai secret.
+- **Injection SQL** : payloads classiques (`' OR '1'='1`, `UNION SELECT`, `DROP TABLE`, commentaire
+  `--`) injectés dans les identifiants de connexion, un paramètre de chemin (`/analytics/rfm/{id}`)
+  et un paramètre de requête (`/analytics/rfm?segment=`).
+- **Élévation de privilèges** : balayage systématique de tous mes endpoints réservés à l'admin avec
+  un jeton `analyst` et sans jeton du tout, pour qu'un futur endpoint oublié dans `require_role(...)`
+  se fasse détecter automatiquement par ce test plutôt que de rester une lacune silencieuse.
+
+**Résultat** : les 40 tentatives échouent proprement (401/403/404 selon le cas), sans jamais
+d'erreur 500 ni de contournement — c'est un résultat honnête à montrer tel quel, y compris le fait
+que je n'ai rien trouvé à exploiter : ça valide que mes requêtes paramétrées, mon RBAC et ma
+vérification JWT (`algorithms=[JWT_ALGORITHM]` explicite dans `api/security.py`, qui empêche
+justement l'attaque `alg: none`) tiennent sous tentative réelle, pas seulement à la lecture du code.
+
+Ce que cette suite ne couvre pas : c'est une simulation ciblée sur la logique applicative que
+j'écris moi-même (auth, RBAC, requêtes SQL), pas un audit de sécurité externe ni un scan généraliste
+(type OWASP ZAP) qui couvrirait aussi la configuration serveur, les en-têtes HTTP, ou des failles de
+bibliothèques tierces — voir la limite ci-dessous.
+
 ## Protection des données et des requêtes
 
 - Toutes les requêtes SQL passent par des requêtes paramétrées (`sqlalchemy.text()` + paramètres
@@ -111,5 +145,8 @@ après anonymisation (nouveau, voir
   des politiques d'accès par rôle plutôt qu'un unique token root).
 - **Rate limiting en mémoire, mono-process** : ne protège pas contre un attaquant distribué sur
   plusieurs IP en dessous du seuil par IP, et ne survit pas à un redémarrage de l'API.
-- **Pas d'audit de sécurité externe** (pentest) -- proportionné à l'échelle d'un projet de
+- **Pas d'audit de sécurité externe** : ma simulation d'attaque (`tests/test_security_attacks.py`,
+  voir plus haut) est un pentest interne que j'ai écrit et exécuté moi-même sur ma propre logique
+  applicative -- pas un audit indépendant, pas un scan généraliste de type OWASP ZAP (configuration
+  serveur, en-têtes HTTP, failles de bibliothèques tierces). Proportionné à l'échelle d'un projet de
   soutenance, mais à mentionner comme limite si le projet devait aller plus loin.

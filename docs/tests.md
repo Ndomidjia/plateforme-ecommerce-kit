@@ -36,7 +36,7 @@ Le test de charge (Locust) est un outil à part, pas relancé à chaque `pytest`
 
 ## Ce que je couvre
 
-### Côté Python (`pytest`, 76 tests)
+### Côté Python (`pytest`, 116 tests)
 
 - **`tests/test_auth_rbac.py`** (14) — authentification JWT, cloisonnement des rôles admin/analyst,
   révocation immédiate du jeton d'un compte supprimé, verrouillage anti-bruteforce de
@@ -46,6 +46,9 @@ Le test de charge (Locust) est un outil à part, pas relancé à chaque `pytest`
   (`churn_proba`, `sentiment_proba`, `proxy_risk_proba` ∈ [0,1]), cohérence des bornes `risk_level`.
 - **`tests/test_model_registry.py`** (5) — mon garde-fou de promotion de modèle (voir
   [architecture.md](architecture.md)) : promotion/rejet, tolérance au bruit, rollback.
+- **`tests/test_security_attacks.py`** (40, nouveau) — simulation d'attaque sur quatre vecteurs
+  (bruteforce/anti-bruteforce, falsification de JWT, injection SQL, élévation de privilèges) : voir
+  [securite.md](securite.md#simulation-dattaque-pentest-interne) pour le détail et le résultat.
 - **`tests/unit/`** (49, nouveau) — logique interne pure de mes scripts `analytics/*.py`, avec des
   données fabriquées à la main plutôt qu'en relisant le résultat final en base (complémentaire à
   `test_data_quality.py`, pas redondant : ça détecte un bug de calcul qui produirait quand même une
