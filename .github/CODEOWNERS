@@ -1,30 +1,31 @@
 # Mapping technique de la gouvernance du projet (voir docs/gouvernance.md pour le détail des
-# rôles, la matrice RACI et le workflow de contribution). Un seul titulaire aujourd'hui (@Ndomidjia,
-# qui cumule tous les rôles) -- le découpage par dossier reste celui qu'on utiliserait pour
-# distribuer les rôles à une équipe, sans réorganisation.
+# rôles, la matrice RACI et le workflow de contribution). Les identifiants ci-dessous sont des
+# rôles, pas des comptes GitHub réels -- ce fichier documente la répartition des responsabilités
+# par dossier, à réassigner à de vrais comptes le jour où un rôle est pourvu par une personne
+# distincte.
 
 # Data Engineer -- sql/, etl/
-/sql/      @Ndomidjia
-/etl/      @Ndomidjia
+/sql/      @role-data-engineer
+/etl/      @role-data-engineer
 
 # Data Scientist / ML Engineer -- analytics/
-/analytics/  @Ndomidjia
+/analytics/  @role-data-scientist
 
 # Backend Developer -- api/
-/api/      @Ndomidjia
+/api/      @role-backend-developer
 
 # Frontend Developer -- dashboard/
-/dashboard/  @Ndomidjia
+/dashboard/  @role-frontend-developer
 
 # QA / DevOps -- tests/, CI, conteneurisation
-/tests/                  @Ndomidjia
-/.github/workflows/      @Ndomidjia
-/docker-compose.yml      @Ndomidjia
+/tests/                  @role-qa-devops
+/.github/workflows/      @role-qa-devops
+/docker-compose.yml      @role-qa-devops
 
 # Référent RGPD & Sécurité -- transverse (endpoints RGPD de l'API + config des secrets)
-/api/routers/rgpd.py  @Ndomidjia
-/.env.example          @Ndomidjia
+/api/routers/rgpd.py  @role-rgpd-referent
+/.env.example          @role-rgpd-referent
 
 # Gouvernance et documentation -- Chef de projet
-/docs/     @Ndomidjia
-/README.md  @Ndomidjia
+/docs/     @role-chef-de-projet
+/README.md  @role-chef-de-projet
