@@ -1,15 +1,15 @@
-name: CI
+name: CI/CD
 
 # Je réponds ici au retour de soutenance "absence de CI/CD confirmée,
-# processus de déploiement flou" : ce pipeline tourne mes tests automatisés
+# processus de déploiement flou" : le job `test` tourne mes tests automatisés
 # (tests/) à chaque push/PR, sur une base PostgreSQL fraîche (schéma seul --
 # je ne commite pas mes CSV Kaggle sources, voir tests/test_data_quality.py
 # et docs/deploiement.md pour ce que ça implique concrètement).
 #
-# Ce que ce pipeline NE fait PAS (limite que j'assume, voir
-# docs/deploiement.md) : pas de déploiement automatique (CD) -- je n'ai pas
-# d'environnement hébergé vers lequel déployer pour ce projet. "CI" au sens
-# strict, pas "CI/CD" complet.
+# Le job `deploy` (CD, ajouté une fois mon serveur Oracle Cloud Always Free
+# provisionné -- voir docs/deploiement.md) ne tourne que sur un push sur
+# main, et seulement si `test` a réussi : un push qui casse mes tests
+# n'atteint jamais le serveur de production.
 
 on:
   push:
@@ -119,3 +119,22 @@ jobs:
             sleep 1
           done
           curl -sf http://127.0.0.1:8000/health
+
+  deploy:
+    needs: test
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    runs-on: ubuntu-latest
+    # Déploiement continu (CD) vers mon serveur Oracle Cloud Always Free --
+    # voir docs/deploiement.md pour la mise en place du serveur et la
+    # justification de ce choix d'infrastructure. Secrets attendus dans les
+    # paramètres du dépôt GitHub (Settings > Secrets and variables >
+    # Actions) : DEPLOY_SSH_KEY (clé privée), DEPLOY_HOST (IP ou domaine
+    # DuckDNS), DEPLOY_USER (ex: ubuntu).
+    steps:
+      - name: Déployer via SSH (git pull + docker compose up --build)
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          script: bash ~/plateforme-ecommerce-kit/deploy/deploy.sh

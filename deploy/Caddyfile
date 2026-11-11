@@ -1,0 +1,18 @@
+# Reverse proxy + HTTPS automatique (Let's Encrypt) pour mon domaine DuckDNS
+# gratuit -- je n'ai pas de nom de domaine payant, voir docs/deploiement.md.
+# {$DUCKDNS_DOMAIN} est lu depuis le .env du serveur (ex: monprojet.duckdns.org).
+{$DUCKDNS_DOMAIN} {
+	encode gzip
+
+	# Mes routes API vivent à la racine (/auth, /analytics, /admin, /rgpd,
+	# /health -- voir api/main.py) : je les distingue des routes du
+	# dashboard React par préfixe plutôt que par sous-domaine, pour rester
+	# sur un seul domaine gratuit.
+	@api path /auth* /analytics* /admin* /rgpd* /health /docs* /openapi.json
+
+	reverse_proxy @api api:8000
+
+	root * /srv
+	file_server
+	try_files {path} /index.html
+}

@@ -155,7 +155,7 @@ automatiquement à chaque push (`.github/workflows/ci.yml`) — voir [docs/tests
   encore)
 - [docs/performance.md](docs/performance.md) — mon test de charge (Locust) et le vrai problème de
   pool de connexions qu'il a révélé
-- [docs/deploiement.md](docs/deploiement.md) — ma CI en place, ce qu'un vrai déploiement continu me
-  demanderait
+- [docs/deploiement.md](docs/deploiement.md) — ma CI, mon hébergement (Oracle Cloud Always Free) et
+  mon déploiement continu
 - [docs/journal-de-bord.md](docs/journal-de-bord.md) — chronologie de mes décisions, incidents que
   j'ai rencontrés et corrigés pendant mon développement

@@ -328,3 +328,40 @@ n'a pas d'objet concret tant que je n'héberge pas ce projet (voir
 [deploiement.md](deploiement.md)) -- ce correctif-ci, en revanche, concernait ma machine de
 développement elle-même, indépendamment de toute question d'hébergement. Détail :
 [securite.md](securite.md#exposition-réseau-de-postgresql-et-vault-retour-de-soutenance).
+
+## Hébergement réel : Oracle Cloud Always Free + déploiement continu (11/11/2026)
+
+J'ai tranché la question du CD : pas de nom de domaine payant, donc je retiens
+[DuckDNS](https://www.duckdns.org/) (sous-domaine gratuit) + Let's Encrypt via Caddy, et Oracle
+Cloud Infrastructure Always Free comme hébergeur (vraie VM gratuite durablement, forme Ampere A1 en
+ARM64, jusqu'à 4 OCPU/24 Go de RAM gratuits). Voir [deploiement.md](deploiement.md) pour le détail
+complet (mise en place du serveur, les deux pare-feu à synchroniser chez Oracle -- Security List du
+VCN *et* `iptables` du système, un piège que je n'ai découvert qu'en le faisant) et
+[securite.md](securite.md) pour la suite de la question du pare-feu réseau.
+
+J'ai conteneurisé mon API (nouveau `api/Dockerfile`, elle tournait jusqu'ici directement via
+`uvicorn` sur l'hôte) et mon dashboard (nouveau `dashboard/Dockerfile`, multi-étapes : build React
+puis servi par Caddy, qui gère aussi le reverse proxy vers l'API et le HTTPS automatique). Nouveau
+`docker-compose.prod.yml`, distinct de mon fichier de dev local : `db` et `vault` n'y exposent plus
+aucun port sur l'hôte (même pas `127.0.0.1`), puisque l'API tourne elle aussi en conteneur sur le
+même réseau Docker désormais -- seul Caddy publie 80/443.
+
+**Incident, trouvé en testant la construction de mon image dashboard avant de déployer** :
+`npm ci` échouait dans le conteneur (`Missing: @emnapi/core@1.11.3 from lock file`), alors que
+`npm install` fonctionnait normalement sur ma machine. Diagnostic : mon `package-lock.json`
+contenait une sous-arborescence de dépendances optionnelles (liée à des binaires natifs de Rollup)
+légèrement désynchronisée de `package.json` -- `npm install` tolère ça silencieusement, `npm ci`
+(strict, utilisé dans mon Dockerfile comme en CI) non. J'ai d'abord suspecté un problème
+musl/Alpine (incompatibilité native connue entre Rollup et Alpine), changé pour une image
+`node:20-slim`, mais l'erreur persistait à l'identique -- ce n'était donc pas la cause. Corrigé en
+régénérant `package-lock.json` entièrement à partir de zéro (suppression puis `npm install`), ce
+qui a aussi fait disparaître 6 vulnérabilités signalées par `npm audit` qui traînaient dans
+l'ancienne arborescence. Mes 45 tests dashboard repassent à l'identique après régénération.
+
+**Vérification de la compatibilité ARM64**, le vrai risque technique du choix Ampere A1 : j'ai
+lancé une construction croisée de mon image API pour `linux/arm64` (émulation QEMU via `docker
+buildx`) -- très lente (`torch` sous émulation complète, chaque instruction Python simulée), donc
+je l'ai complétée par une vérification directe et rapide auprès de l'index PyPI : `torch` 2.15.0 et
+`psycopg2-binary` 2.9.13 publient tous les deux de vraies roues précompilées pour
+`linux/aarch64` en Python 3.12 (ma version dans `api/Dockerfile`) -- pas de compilation depuis les
+sources nécessaire sur le serveur réel (ARM natif, sans la lenteur de l'émulation).

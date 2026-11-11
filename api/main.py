@@ -1,4 +1,6 @@
 """API FastAPI : authentification JWT, RBAC (admin/analyst), endpoints analytics et RGPD."""
+import os
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -11,10 +13,18 @@ app = FastAPI(
 )
 
 # Dashboard React en dev (Vite) : origine distincte (port 5173), donc CORS
-# explicite nécessaire pour que le navigateur autorise les appels à l'API.
+# explicite nécessaire pour que le navigateur autorise les appels à l'API. En
+# production (voir docker-compose.prod.yml), Caddy sert l'API et le dashboard
+# sur le même domaine (routage par chemin) : pas besoin de CORS pour ce trafic
+# normal, mais CORS_EXTRA_ORIGIN reste utile pour un accès direct à /docs
+# depuis ce domaine ou un accès cross-origin ponctuel.
+allow_origins = ["http://localhost:5173", "http://127.0.0.1:5173"]
+if os.environ.get("CORS_EXTRA_ORIGIN"):
+    allow_origins.append(os.environ["CORS_EXTRA_ORIGIN"])
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173", "http://127.0.0.1:5173"],
+    allow_origins=allow_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
