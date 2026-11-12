@@ -430,3 +430,9 @@ l'écran, pas avec la clé. Corrigé en supprimant entièrement l'ancien secret 
 entrée neuve, en enchaînant copie PowerShell et collage sans aucune action intermédiaire sur la
 page -- j'ai vérifié visuellement le contenu multi-lignes correct (BEGIN/END) avant de valider,
 plutôt que de supposer que le collage avait fonctionné.
+
+**Résultat** : une fois le secret correctement enregistré, mon déclenchement suivant a abouti sans
+aucune intervention manuelle -- le serveur a récupéré, reconstruit et remis en service la dernière
+version du code en un peu plus d'une minute et demie après mon push sur `main`, vérifié en observant
+directement le commit courant du serveur changer. Mon pipeline de déploiement continu n'est donc
+plus seulement configuré : il est vérifié par un déclenchement réel, pas supposé fonctionnel.
