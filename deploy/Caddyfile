@@ -4,15 +4,22 @@
 {$DUCKDNS_DOMAIN} {
 	encode gzip
 
-	# Mes routes API vivent à la racine (/auth, /analytics, /admin, /rgpd,
-	# /health -- voir api/main.py) : je les distingue des routes du
-	# dashboard React par préfixe plutôt que par sous-domaine, pour rester
-	# sur un seul domaine gratuit.
-	@api path /auth* /analytics* /admin* /rgpd* /health /docs* /openapi.json
+	# J'utilise des blocs `handle` explicitement ordonnés et mutuellement
+	# exclusifs, plutôt que des directives top-level (reverse_proxy +
+	# file_server/try_files) : Caddy réordonne les directives top-level selon
+	# un ordre interne fixe (try_files passe AVANT reverse_proxy, quel que
+	# soit l'ordre dans ce fichier), ce qui réécrivait silencieusement mes
+	# routes API (/auth/login, /health...) vers index.html avant même que la
+	# règle API ne soit évaluée -- incident que j'ai découvert en testant le
+	# déploiement réel. Les blocs `handle` s'évaluent dans l'ordre du texte,
+	# le premier qui matche l'emporte.
+	handle /auth* /analytics* /admin* /rgpd* /health /docs* /openapi.json {
+		reverse_proxy api:8000
+	}
 
-	reverse_proxy @api api:8000
-
-	root * /srv
-	file_server
-	try_files {path} /index.html
+	handle {
+		root * /srv
+		try_files {path} /index.html
+		file_server
+	}
 }
