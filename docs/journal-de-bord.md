@@ -365,3 +365,51 @@ je l'ai complétée par une vérification directe et rapide auprès de l'index P
 `psycopg2-binary` 2.9.13 publient tous les deux de vraies roues précompilées pour
 `linux/aarch64` en Python 3.12 (ma version dans `api/Dockerfile`) -- pas de compilation depuis les
 sources nécessaire sur le serveur réel (ARM natif, sans la lenteur de l'émulation).
+
+## Déploiement réel sur Scaleway : bascule, incidents et mise en ligne vérifiée (12/11/2026)
+
+**Je n'ai pas pu aller au bout d'Oracle Cloud** : leur vérification de paiement a rejeté ma carte
+(néobanque), un problème documenté comme fréquent chez ce fournisseur, indépendant de ma
+configuration. Plutôt que d'insister, j'ai basculé sur **Scaleway** (société française) -- carte
+acceptée sans friction, architecture x86_64 (plus simple que l'ARM64 que je visais côté Oracle),
+instance `DEV1-S` (2 vCPU, 2 Go RAM, ~12 €/mois si elle tourne en continu -- je renonce ici à la
+gratuité permanente d'Oracle Always Free, choix budgétaire assumé pour la durée de mon projet).
+
+**Incident de quota sur un compte tout juste créé** : ma première tentative de création d'instance
+`DEV1-S` a été refusée ("quota(s) exceeded"), alors même que paiement et identité venaient d'être
+validés. J'ai diagnostiqué en créant d'abord une instance minimale (`STARDUST1-S`) dans une autre
+zone, qui est passée -- preuve que mon compte n'était pas bloqué à zéro instance. J'ai ensuite
+utilisé "Change offer" pour upgrader cette instance déjà créée vers `DEV1-S`, ce qui a fonctionné
+alors que la création directe d'une nouvelle instance `DEV1-S` échouait toujours -- contournement
+qui m'a évité d'attendre une réponse du support.
+
+**Mise en place du serveur** : contrairement à Oracle, l'image Ubuntu Scaleway n'a aucun pare-feu
+système actif par défaut (`ufw status` = `inactive`) -- pas le piège à deux niveaux que j'avais
+anticipé. Je l'ai quand même activé moi-même par principe de défense en profondeur. Avec seulement
+2 Go de RAM et aucun swap par défaut, j'ai ajouté 2 Go de swap persistant avant de déployer quoi que
+ce soit, pour ne pas risquer un arrêt brutal d'un conteneur sous pression mémoire.
+
+**Allègement de mon image API** : à 2,78 Go pour l'image construite, j'ai créé `api/requirements.txt`
+(sous-ensemble du fichier racine, sans `jupyter`/`pytest`/`locust`, jamais utilisés à l'exécution) --
+gain modeste mais réel (2,43 Go), `torch`/`scipy`/`pandas` restant l'essentiel du poids, légitimement
+nécessaire.
+
+**Deux bugs Caddy trouvés en déployant pour de vrai, invisibles à la simple lecture de ma config** :
+1. Mes directives top-level (`reverse_proxy`, `try_files`, `file_server`) ne s'exécutent pas dans
+   l'ordre où je les ai écrites -- Caddy applique un ordre interne fixe où `try_files` passe avant
+   `reverse_proxy`, donc toute requête (y compris `/auth/login`) était réécrite vers `index.html`
+   avant même que ma règle `@api` ne soit évaluée. `/health` renvoyait du HTML, pas mon JSON attendu.
+2. Ma première correction (blocs `handle` explicitement ordonnés) a introduit une deuxième erreur :
+   `handle` n'accepte qu'un chemin unique ou un matcher nommé, pas une liste de chemins brute --
+   Caddy plantait en boucle au démarrage (erreur de parsing visible dans ses logs).
+
+Corrigé avec un matcher nommé `@api` réutilisé par `handle @api { ... }`, validé localement avec
+`caddy validate` avant tout redéploiement (pour ne plus refaire d'aller-retour serveur sur une
+simple erreur de syntaxe).
+
+**Résultat, vérifié de bout en bout, pas juste supposé** : https://plateforme-ecommerce.duckdns.org
+répond en HTTPS avec un vrai certificat Let's Encrypt (émis automatiquement par Caddy, vérifié avec
+`openssl s_client`), `/health` renvoie `{"status":"ok"}`, `/auth/login` atteint bien l'API (422 sur
+un corps vide, pas une redirection HTML), le dashboard se charge. Ce n'est plus une infrastructure
+"prête à déployer" comme je le documentais avant cette session -- c'est un déploiement réel,
+observé en fonctionnement.
