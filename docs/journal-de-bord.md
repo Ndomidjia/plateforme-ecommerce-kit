@@ -421,6 +421,12 @@ donc pas de `deploy.sh`. Le log exact de l'action (`ssh: ParsePrivateKey: ssh: n
 pointait vers le secret GitHub `DEPLOY_SSH_KEY` lui-même, pas vers ma configuration serveur :
 collé manuellement depuis un terminal, son contenu avait dû perdre un caractère ou inclure une
 ligne de prompt parasite -- un risque inhérent au copier-coller manuel d'un secret multi-lignes,
-que je n'avais pas anticipé. Corrigé en recopiant la clé directement dans le presse-papier
-(`Get-Content ... -Raw | Set-Clipboard`) plutôt qu'en la sélectionnant à la main dans un terminal,
-pour éliminer cette classe d'erreur plutôt que de la corriger au cas par cas.
+que je n'avais pas anticipé. Ma première tentative de correction (recopier la clé via le
+presse-papier, `Get-Content ... -Raw | Set-Clipboard`, plutôt qu'une sélection manuelle dans un
+terminal) a échoué à l'identique une seconde fois -- cause réelle, découverte en vérifiant le
+contenu du presse-papier juste avant de coller : un clic sur la page GitHub entre la commande
+PowerShell et le Ctrl+V avait écrasé le presse-papier avec le texte du nom du secret affiché à
+l'écran, pas avec la clé. Corrigé en supprimant entièrement l'ancien secret et en recréant une
+entrée neuve, en enchaînant copie PowerShell et collage sans aucune action intermédiaire sur la
+page -- j'ai vérifié visuellement le contenu multi-lignes correct (BEGIN/END) avant de valider,
+plutôt que de supposer que le collage avait fonctionné.
