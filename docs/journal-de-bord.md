@@ -413,3 +413,14 @@ répond en HTTPS avec un vrai certificat Let's Encrypt (émis automatiquement pa
 un corps vide, pas une redirection HTML), le dashboard se charge. Ce n'est plus une infrastructure
 "prête à déployer" comme je le documentais avant cette session -- c'est un déploiement réel,
 observé en fonctionnement.
+
+**Incident sur le pipeline de déploiement continu lui-même, découvert en le testant pour de vrai.**
+Mon premier déclenchement réel (push sur `main`) a échoué en 6 secondes sur le job `deploy`, alors
+que mon script fonctionne parfaitement en exécution manuelle identique -- la différence ne venait
+donc pas de `deploy.sh`. Le log exact de l'action (`ssh: ParsePrivateKey: ssh: no key found`)
+pointait vers le secret GitHub `DEPLOY_SSH_KEY` lui-même, pas vers ma configuration serveur :
+collé manuellement depuis un terminal, son contenu avait dû perdre un caractère ou inclure une
+ligne de prompt parasite -- un risque inhérent au copier-coller manuel d'un secret multi-lignes,
+que je n'avais pas anticipé. Corrigé en recopiant la clé directement dans le presse-papier
+(`Get-Content ... -Raw | Set-Clipboard`) plutôt qu'en la sélectionnant à la main dans un terminal,
+pour éliminer cette classe d'erreur plutôt que de la corriger au cas par cas.
