@@ -142,24 +142,27 @@ concerne ma machine de développement elle-même.
 Corrigé en local : je restreins les deux mappings de ports à `127.0.0.1` (`"127.0.0.1:5432:5432"` et
 `"127.0.0.1:8200:8200"`) — accessibles uniquement depuis ma propre machine, jamais depuis le réseau.
 
-### Pare-feu réseau en production (serveur Oracle Cloud Always Free)
+### Pare-feu réseau en production (serveur Scaleway)
 
-Depuis que j'héberge ce projet (voir [deploiement.md](deploiement.md)), la question du pare-feu ne
-se limite plus à ma machine de développement. Mon architecture de production
-(`docker-compose.prod.yml`) va plus loin que le correctif local : `db` et `vault` n'ont **aucun**
-port publié sur l'hôte (même pas `127.0.0.1`), puisque mon API tourne désormais elle aussi en
-conteneur sur le même réseau Docker — seul `web` (Caddy) publie les ports 80/443, point d'entrée
-public unique de toute l'infrastructure.
+Depuis que j'héberge ce projet (voir [deploiement.md](deploiement.md) pour l'historique du choix
+d'hébergeur, Scaleway plutôt qu'Oracle Cloud), la question du pare-feu ne se limite plus à ma
+machine de développement. Mon architecture de production (`docker-compose.prod.yml`) va plus loin
+que le correctif local : `db` et `vault` n'ont **aucun** port publié sur l'hôte (même pas
+`127.0.0.1`), puisque mon API tourne désormais elle aussi en conteneur sur le même réseau Docker —
+seul `web` (Caddy) publie les ports 80/443, point d'entrée public unique de toute l'infrastructure.
 
-Le pare-feu côté hébergeur se gère à deux niveaux distincts chez Oracle Cloud, un piège que j'ai
-découvert en le mettant en place (voir [deploiement.md](deploiement.md) pour le détail) :
+Le pare-feu côté hébergeur se gère à deux niveaux chez Scaleway, comme chez la plupart des
+fournisseurs cloud, mais sans le piège que j'avais anticipé en préparant initialement Oracle Cloud :
 
-1. **Security List du VCN** (niveau cloud, dans la console OCI) : règles d'entrée explicites pour
-   les ports 22 (SSH), 80 et 443 — tout le reste reste fermé par défaut.
-2. **`iptables` du système** (niveau OS, sur la VM elle-même) : les images Ubuntu d'Oracle
-   embarquent un second pare-feu, déjà actif, qui bloque le trafic même quand la Security List
-   l'autorise. Je dois explicitement y ajouter des règles `ACCEPT` pour 80/443, en plus de la
-   Security List — deux pare-feu à synchroniser, pas un seul.
+1. **Security Group** (niveau cloud, dans la console Scaleway) : règles d'entrée explicites pour les
+   ports 22 (SSH), 80 et 443 — tout le reste reste fermé par défaut.
+2. **`ufw`/`iptables` du système** (niveau OS, sur la VM elle-même) : à la différence des images
+   Ubuntu d'Oracle (qui embarquent un second pare-feu déjà actif, bloquant le trafic même quand la
+   règle cloud l'autorise — un piège que j'avais documenté en préparant ce fournisseur avant de
+   basculer sur Scaleway), l'image Ubuntu standard de Scaleway n'a **aucun** filtrage actif par
+   défaut (`ufw status` renvoie `inactive` à la première connexion). J'ai néanmoins activé `ufw`
+   moi-même avec les mêmes règles que le Security Group, par principe de défense en profondeur :
+   une mauvaise configuration future du Security Group seul ne suffirait pas à exposer le serveur.
 
 ## RGPD
 

@@ -1,5 +1,4 @@
-# Construit depuis la racine du dépôt (contexte = racine, pas api/), car
-# requirements.txt vit à la racine, partagé avec analytics/ -- voir
+# Construit depuis la racine du dépôt (contexte = racine, pas api/) -- voir
 # docs/deploiement.md pour la commande de build exacte.
 FROM python:3.12-slim
 
@@ -14,7 +13,11 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 WORKDIR /app
 
-COPY requirements.txt .
+# api/requirements.txt : sous-ensemble du requirements.txt racine, sans
+# jupyter/pytest/locust (dev-only, jamais utilisés à l'exécution de l'API ou
+# des scripts analytics/*.py relancés en sous-processus) -- voir ce fichier
+# pour le détail du gain.
+COPY api/requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 COPY api/ ./api/

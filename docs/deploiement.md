@@ -33,85 +33,94 @@ dans `api/routers/analytics.py`.
 
 ## Ce que j'ai mis en place : déploiement continu (CD)
 
-J'ai choisi **Oracle Cloud Infrastructure (OCI) — offre Always Free** comme cible d'hébergement :
-un vrai serveur distant, gratuit de façon permanente (pas un essai limité dans le temps), sur
-lequel je gère moi-même le pare-feu réseau — le point précis qui manquait pour que "CD" ait un sens
-concret chez moi.
+J'ai choisi **Scaleway** comme hébergeur : un vrai serveur distant (VPS), sur lequel je gère
+moi-même le pare-feu réseau — le point précis qui manquait pour que "CD" ait un sens concret chez
+moi.
 
-### Pourquoi Oracle Cloud Always Free plutôt qu'une alternative
+### Pourquoi Scaleway plutôt qu'Oracle Cloud Always Free (changement de cible en cours de projet)
 
-- **Gratuit durablement**, pas un crédit de lancement qui expire : adapté à un projet de
-  soutenance que je veux pouvoir montrer en ligne sans budget récurrent.
-- **Une vraie VM** (pas un PaaS qui masque l'infrastructure) : je gère moi-même le système
-  d'exploitation, le pare-feu, Docker — cohérent avec l'objectif pédagogique de ce projet
-  (comprendre chaque couche plutôt que déléguer).
-- **Ressources Always Free généreuses** sur la forme de calcul Ampere A1 (ARM) : jusqu'à 4 OCPU et
-  24 Go de RAM gratuits, largement suffisant pour PostgreSQL + Vault + API + dashboard sur une seule
-  machine, là où l'alternative x86 Always Free (forme Micro) ne propose qu'1 Go de RAM.
+J'avais initialement retenu **Oracle Cloud Infrastructure (OCI), offre Always Free**, pour sa
+gratuité permanente. Je n'ai pas pu aller au bout : la vérification de paiement d'Oracle a rejeté
+ma carte (néobanque), un problème documenté comme fréquent chez ce fournisseur et indépendant de ma
+configuration technique. Plutôt que de m'acharner sur cette vérification, j'ai basculé sur
+**Scaleway**, hébergeur français :
 
-**Contrepartie assumée** : la forme Ampere A1 est en architecture **ARM64**, pas x86_64. J'ai
-vérifié la compatibilité de mes dépendances (notamment `torch`, la plus susceptible de poser
-problème) en construisant mon image API pour `linux/arm64` avant de déployer — voir
-[securite.md](securite.md) et le résultat ci-dessous.
+- **carte bancaire acceptée sans friction** (société française, vérification d'identité standard,
+  passée en quelques minutes) ;
+- **une vraie VM**, comme Oracle, avec contrôle complet du système d'exploitation et du pare-feu —
+  pas un PaaS qui l'abstrairait ;
+- **coût modeste mais réel** (contrairement à Oracle Always Free) : instance `DEV1-S` (2 vCPU, 2 Go
+  de RAM) + 20 Go de stockage bloc + une adresse IPv4 flexible, environ **12 €/mois** si elle tourne
+  en continu — un choix assumé, proportionné à la durée de vie d'un projet de soutenance, pas à un
+  service permanent.
+- **architecture x86_64** (contrairement à l'Ampere A1/ARM64 d'Oracle que j'avais initialement
+  prévue) : plus simple, c'est l'architecture la mieux couverte par toutes mes dépendances sans
+  aucune vérification supplémentaire nécessaire.
+
+**Incident rencontré et résolu — quota de compte neuf.** Ma première tentative de création d'une
+instance `DEV1-S` a été bloquée par un message "quota(s) exceeded", alors même que paiement et
+identité venaient d'être validés. Diagnostic en deux temps : j'ai d'abord créé une instance minimale
+(`STARDUST1-S`, 1 Go de RAM) dans une autre zone disponible, qui a réussi — ce qui prouvait que mon
+compte n'était pas bloqué à zéro instance, seulement sur les offres plus importantes. J'ai ensuite
+utilisé la fonction "Change offer" pour **upgrader cette instance déjà créée** vers `DEV1-S`, ce qui
+a fonctionné alors que la création directe d'une nouvelle instance `DEV1-S` ne passait pas — un
+contournement qui a évité d'attendre une réponse du support.
 
 ### Nom de domaine : DuckDNS plutôt qu'un domaine payant
 
 Je n'ai pas de nom de domaine, et un certificat HTTPS valide (Let's Encrypt) exige un nom de domaine
 résolvable publiquement — une IP seule ne suffit pas. [DuckDNS](https://www.duckdns.org/) fournit un
-sous-domaine gratuit (`moncompte.duckdns.org`) que je pointe une fois vers l'IP publique **réservée**
-de mon instance OCI (Always Free inclut une IPv4 publique réservée gratuite — je l'utilise
-précisément pour ne pas avoir à remettre à jour ce sous-domaine à chaque redémarrage de la VM, pas
-besoin d'un script de mise à jour dynamique).
+sous-domaine gratuit (`moncompte.duckdns.org`) que je pointe vers l'**IP flexible** de mon instance
+Scaleway (persistante tant que je ne la détache pas, équivalent fonctionnel d'une IP réservée).
 
-### Mise en place du serveur (étapes que j'exécute moi-même dans la console OCI, pas automatisables depuis mon poste)
+### Mise en place du serveur (étapes exécutées dans la console Scaleway puis en SSH)
 
-1. **Créer le compte OCI** (si pas déjà fait) et, dans la console, **Compute → Instances → Create
-   instance**.
-2. **Image** : Ubuntu 24.04 (Always Free eligible, image ARM disponible).
-3. **Forme (shape)** : changer pour `VM.Standard.A1.Flex` (Ampere, ARM) et régler à 2-4 OCPU / 12-24
-   Go de RAM selon le quota Always Free disponible sur mon compte.
-4. **Clé SSH** : générer une paire de clés (`ssh-keygen -t ed25519`) et coller la **clé publique**
-   dans le formulaire de création — je garde la clé privée pour me connecter, jamais partagée.
-5. **Réseau** : laisser le VCN par défaut créé automatiquement. Une fois l'instance créée, noter son
-   **IP publique**, puis **réserver** cette IP (Networking → IP Management → Reserved Public IPs →
-   associer à l'instance) pour qu'elle ne change jamais.
-6. **Pare-feu réseau (ce que je cherchais à gérer moi-même)** : dans **Networking → Virtual Cloud
-   Networks → (mon VCN) → Security Lists** (ou Network Security Groups pour un filtrage plus fin),
-   j'ajoute des règles d'entrée (*Ingress Rules*) :
-   - port 22 (SSH) — source : mon IP personnelle si possible, sinon `0.0.0.0/0` à restreindre plus
-     tard ;
-   - port 80 (HTTP, requis par Let's Encrypt pour valider le domaine) — source `0.0.0.0/0` ;
-   - port 443 (HTTPS) — source `0.0.0.0/0`.
+1. **Compute → Instances → Create Instance**, type **CPU Instance** (pas GPU — `torch` tourne en
+   CPU dans ce projet, volontairement, voir [architecture.md](architecture.md)).
+2. **Taille** : `DEV1-S` (2 vCPU, 2 Go de RAM) — j'ai écarté `STARDUST1-S` (1 Go), trop juste pour
+   PostgreSQL + Vault + l'API (qui charge `torch`/`scikit-learn`) + Caddy simultanément.
+3. **Image** : Ubuntu 24.04 LTS (Noble Numbat) — la version LTS la plus mature et documentée au
+   moment du déploiement.
+4. **Stockage** : 20 Go (volume unique, pas deux volumes séparés — un second volume bloc ne serait
+   pas automatiquement monté, inutile de complexifier).
+5. **Réseau** : IPv4 flexible activée (payante, ~3,65 €/mois, c'est elle que DuckDNS pointera),
+   IPv6 gratuite activée aussi.
+6. **Clé SSH** : générée localement (`ssh-keygen -t ed25519`), clé publique collée dans la console.
+7. **Pare-feu réseau (Security Group Scaleway)** : règles d'entrée pour les ports 22 (SSH), 80
+   (HTTP, requis par Let's Encrypt) et 443 (HTTPS).
 
-   **Piège spécifique à OCI que j'ai dû documenter** : la Security List du VCN ne suffit pas. Les
-   images Ubuntu d'Oracle embarquent **en plus** un pare-feu au niveau du système d'exploitation
-   (`iptables`, déjà configuré pour bloquer la plupart du trafic entrant par défaut) — un second
-   niveau de filtrage, invisible dans la console, qui bloque le trafic même quand la Security List
-   l'autorise. Je dois donc **aussi** ouvrir les ports côté système, une fois connecté en SSH :
+   **Différence avec Oracle que j'ai vérifiée** : sur Scaleway, l'image Ubuntu standard n'embarque
+   **pas** de second pare-feu système pré-configuré pour bloquer le trafic (`sudo ufw status` renvoie
+   `inactive` à la première connexion, `iptables -L` ne montre aucune règle) — contrairement au piège
+   à deux niveaux que j'avais documenté pour Oracle. J'ai néanmoins activé `ufw` moi-même, par
+   principe de défense en profondeur plutôt que par nécessité corrective :
    ```bash
-   sudo iptables -I INPUT -p tcp --dport 80 -j ACCEPT
-   sudo iptables -I INPUT -p tcp --dport 443 -j ACCEPT
-   sudo netfilter-persistent save
+   sudo ufw allow 22/tcp && sudo ufw allow 80/tcp && sudo ufw allow 443/tcp
+   sudo ufw --force enable
    ```
-   Deux pare-feu à gérer pour un seul serveur (cloud + système) : exactement le genre de détail
-   qu'on ne découvre qu'en le faisant, pas en le lisant — je le documente ici pour ne pas le refaire
-   deviner à qui reprendrait ce projet.
-7. **Docker** sur le serveur :
+8. **Swap de sécurité** : avec seulement 2 Go de RAM et aucun swap par défaut, j'ai ajouté 2 Go de
+   swap persistant pour absorber un pic mémoire plutôt que de risquer un arrêt brutal d'un conteneur
+   (`OOM kill`) :
+   ```bash
+   sudo fallocate -l 2G /swapfile && sudo chmod 600 /swapfile && sudo mkswap /swapfile
+   sudo swapon /swapfile
+   echo '/swapfile none swap sw 0 0' | sudo tee -a /etc/fstab
+   ```
+9. **Docker** :
    ```bash
    sudo apt-get update && sudo apt-get install -y docker.io docker-compose-v2 git
-   sudo usermod -aG docker $USER   # puis se reconnecter en SSH
    ```
-8. **Cloner le dépôt et configurer `.env`** (jamais commité, voir `.env.example`) :
-   ```bash
-   git clone https://github.com/Ndomidjia/plateforme-ecommerce-kit.git
-   cd plateforme-ecommerce-kit
-   cp .env.example .env && nano .env   # vrais mots de passe/tokens + DUCKDNS_DOMAIN
-   ```
-9. **Premier déploiement manuel** (les suivants sont automatiques, voir plus bas) :
-   ```bash
-   docker compose -f docker-compose.prod.yml up -d --build
-   docker compose -f docker-compose.prod.yml exec api python /app/scripts/vault_init.py
-   ```
+10. **Cloner le dépôt et configurer `.env`** (jamais commité, voir `.env.example`) :
+    ```bash
+    git clone https://github.com/Ndomidjia/plateforme-ecommerce-kit.git
+    cd plateforme-ecommerce-kit
+    cp .env.example .env && nano .env   # vrais mots de passe/tokens + DUCKDNS_DOMAIN
+    ```
+11. **Premier déploiement manuel** (les suivants sont automatiques, voir plus bas) :
+    ```bash
+    docker compose -f docker-compose.prod.yml up -d --build
+    docker compose -f docker-compose.prod.yml exec api python /app/scripts/vault_init.py
+    ```
 
 ### Architecture de production (différente de mon architecture de développement local)
 
@@ -144,7 +153,8 @@ uniquement si le job `test` a réussi — un changement qui casse mes tests n'at
 serveur de production. Il se connecte en SSH au serveur et exécute `deploy/deploy.sh` (`git pull` +
 reconstruction des images + redémarrage). Secrets nécessaires, déclarés dans les paramètres du
 dépôt GitHub (jamais commités) : `DEPLOY_SSH_KEY` (clé privée dédiée, différente de ma clé
-personnelle), `DEPLOY_HOST` (IP réservée ou domaine DuckDNS), `DEPLOY_USER` (`ubuntu`).
+personnelle), `DEPLOY_HOST` (IP flexible ou domaine DuckDNS), `DEPLOY_USER` (`root`, utilisateur par
+défaut des images Ubuntu Scaleway).
 
 ## Limites que j'assume encore sur ce déploiement
 
@@ -158,6 +168,8 @@ personnelle), `DEPLOY_HOST` (IP réservée ou domaine DuckDNS), `DEPLOY_USER` (`
 - **Recalcul à la demande toujours suivi en mémoire** dans le conteneur `api` (voir
   [limitations-methodologiques.md](limitations-methodologiques.md)) : ne survit pas à un redémarrage
   du conteneur, ne fonctionnerait pas avec plusieurs workers.
-- **IPv4 réservée Always Free** : gratuite mais liée à mon compte OCI ; si je supprimais le compte,
-  je perdrais cette IP (et donc devrais mettre à jour mon enregistrement DuckDNS) — un risque
-  accepté, pas pertinent pour la durée d'un projet de soutenance.
+- **Coût récurrent assumé, pas un hébergement gratuit permanent** : contrairement à mon plan
+  initial (Oracle Always Free), Scaleway facture environ 12 €/mois si l'instance tourne en continu —
+  un choix budgétaire que j'assume pour la durée de mon projet, pas un service que je prévois de
+  maintenir indéfiniment. L'IP flexible reste liée à mon compte : si je le supprimais, je perdrais
+  cette IP et devrais mettre à jour mon enregistrement DuckDNS.

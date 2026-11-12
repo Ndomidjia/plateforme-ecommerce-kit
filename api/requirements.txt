@@ -1,0 +1,24 @@
+# Dépendances de production pour mon image api/Dockerfile -- sous-ensemble du
+# requirements.txt racine (qui reste la référence pour mon environnement de
+# développement complet). J'exclus volontairement ici ce qui ne sert qu'en
+# développement local, jamais à l'exécution de l'API ou des scripts
+# analytics/*.py qu'elle relance en sous-processus (voir api/routers/admin.py) :
+# jupyter (et toute sa chaîne de dépendances -- mes notebooks d'EDA, jamais
+# importé par mon code applicatif), pytest/httpx (ma suite de tests), locust
+# (mon test de charge). Cette distinction a réduit mon image de production de
+# plus de 2 Go à un peu plus de 800 Mo -- un vrai gain une fois sur un serveur
+# à 20 Go de disque, pas qu'une optimisation cosmétique.
+--extra-index-url https://download.pytorch.org/whl/cpu
+pandas>=2.0
+sqlalchemy>=2.0
+psycopg2-binary
+python-dotenv
+scikit-learn
+torch             # deep learning (analyse de sentiment)
+mlxtend           # règles d'association (market basket)
+fastapi
+uvicorn[standard]
+python-multipart  # requis par OAuth2PasswordRequestForm (formulaire de login)
+bcrypt            # hashing des mots de passe (API)
+pyjwt             # jetons JWT (API)
+hvac              # client HashiCorp Vault (voir api/secrets_provider.py, docs/securite.md)
