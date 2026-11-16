@@ -1,0 +1,7 @@
+*.pdf -text binary
+*.docx -text binary
+*.pptx -text binary
+*.ppsx -text binary
+*.png binary
+*.jpg binary
+*.jpeg binary
